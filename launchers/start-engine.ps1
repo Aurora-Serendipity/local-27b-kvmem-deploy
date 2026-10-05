@@ -43,8 +43,9 @@ Title ("启动本地模型 · " + $c.Name)
 if (-not (Test-Path -LiteralPath $Launcher)) {
   Write-Host '  [错误] 找不到交付包：' -ForegroundColor Red
   Write-Host ("         " + $Launcher)
-  Write-Host '  说明：本脚本假定 launchers\ 与 pkg3-lowvram-llama-kvmem\ 在同一个父目录下。'
-  Write-Host '        如果你挪动了其中任何一个，请把 launchers\ 和交付包放回同一父目录，或改本脚本顶部的 $Pkg 那一行。'
+  Write-Host '  说明：本脚本默认假定 launchers\ 与 pkg3-lowvram-llama-kvmem\ 在同一个父目录下。'
+  Write-Host '        结构不同时有两个办法：① 启动时加 -PkgPath "<包目录>" 显式指定（推荐）'
+  Write-Host '        ② 把两者放回同一父目录，或直接改本脚本顶部的 $Pkg 那一行。'
   Read-Host '  按回车退出'
   exit 2
 }
