@@ -1,0 +1,73 @@
+{
+    "tag":  "A-baseline",
+    "port":  18200,
+    "stamp":  "20261005-103305",
+    "protocol":  "long prompt \u003e=1k tokens; long output \u003e=400 tokens; greedy (temperature 0); first round dropped; median of the rest",
+    "prompt_words":  900,
+    "max_tokens":  500,
+    "rounds":  [
+                   {
+                       "round":  1,
+                       "drop":  true,
+                       "prompt_tokens":  3560,
+                       "cache_hit":  0,
+                       "out_tokens":  500,
+                       "prefill_tps":  290.39536578591816,
+                       "decode_tps":  27.41486091511694,
+                       "prompt_ms":  12259.1488,
+                       "predicted_ms":  18238.2833,
+                       "wall_s":  30.58,
+                       "finish":  "length",
+                       "sha16":  "A32CF212A9408F02",
+                       "vram_mib":  6329
+                   },
+                   {
+                       "round":  2,
+                       "drop":  false,
+                       "prompt_tokens":  3560,
+                       "cache_hit":  0,
+                       "out_tokens":  500,
+                       "prefill_tps":  294.09427307578494,
+                       "decode_tps":  27.455366661534708,
+                       "prompt_ms":  12104.962,
+                       "predicted_ms":  18211.3758,
+                       "wall_s":  30.37,
+                       "finish":  "length",
+                       "sha16":  "0A6CE068C68BD49B",
+                       "vram_mib":  6329
+                   },
+                   {
+                       "round":  3,
+                       "drop":  false,
+                       "prompt_tokens":  3560,
+                       "cache_hit":  0,
+                       "out_tokens":  500,
+                       "prefill_tps":  292.72538765351743,
+                       "decode_tps":  27.427104871495949,
+                       "prompt_ms":  12161.569,
+                       "predicted_ms":  18230.1414,
+                       "wall_s":  30.44,
+                       "finish":  "length",
+                       "sha16":  "FB96FDE1459DB407",
+                       "vram_mib":  6329
+                   },
+                   {
+                       "round":  4,
+                       "drop":  false,
+                       "prompt_tokens":  3560,
+                       "cache_hit":  0,
+                       "out_tokens":  500,
+                       "prefill_tps":  292.72862025070117,
+                       "decode_tps":  27.46221028226346,
+                       "prompt_ms":  12161.4347,
+                       "predicted_ms":  18206.8375,
+                       "wall_s":  30.42,
+                       "finish":  "length",
+                       "sha16":  "50600AF19B305B7B",
+                       "vram_mib":  6329
+                   }
+               ],
+    "prefill_median_tps":  292.73,
+    "decode_median_tps":  27.46,
+    "content_kind":  "text (chat completion, greedy)"
+}

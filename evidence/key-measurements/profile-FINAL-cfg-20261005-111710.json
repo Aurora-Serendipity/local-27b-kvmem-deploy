@@ -1,0 +1,157 @@
+{
+    "tag":  "FINAL-cfg",
+    "stamp":  "20261005-111710",
+    "target_tokens":  24000,
+    "depths":  [
+                   0.005,
+                   0.0669,
+                   0.1288,
+                   0.1906,
+                   0.2525,
+                   0.3144,
+                   0.3763,
+                   0.4381,
+                   0.5,
+                   0.5619,
+                   0.6238,
+                   0.6856,
+                   0.7475,
+                   0.8094,
+                   0.8713,
+                   0.9331,
+                   0.995
+               ],
+    "prompt_tokens":  29765,
+    "prefix_cache_hit":  0,
+    "out_tokens":  277,
+    "prefill_tps":  280.35250579366374,
+    "decode_tps":  21.512768231795373,
+    "wall_s":  119.16,
+    "needles":  [
+                    {
+                        "idx":  1,
+                        "depth":  0.005,
+                        "wordPos":  30,
+                        "code":  "ZULU-11011-AA"
+                    },
+                    {
+                        "idx":  2,
+                        "depth":  0.0669,
+                        "wordPos":  407,
+                        "code":  "ZULU-22022-BA"
+                    },
+                    {
+                        "idx":  3,
+                        "depth":  0.1288,
+                        "wordPos":  783,
+                        "code":  "ZULU-33033-CA"
+                    },
+                    {
+                        "idx":  4,
+                        "depth":  0.1906,
+                        "wordPos":  1159,
+                        "code":  "ZULU-44044-DA"
+                    },
+                    {
+                        "idx":  5,
+                        "depth":  0.2525,
+                        "wordPos":  1535,
+                        "code":  "ZULU-55055-EA"
+                    },
+                    {
+                        "idx":  6,
+                        "depth":  0.3144,
+                        "wordPos":  1911,
+                        "code":  "ZULU-66066-FA"
+                    },
+                    {
+                        "idx":  7,
+                        "depth":  0.3763,
+                        "wordPos":  2288,
+                        "code":  "ZULU-77077-GA"
+                    },
+                    {
+                        "idx":  8,
+                        "depth":  0.4381,
+                        "wordPos":  2663,
+                        "code":  "ZULU-88088-HA"
+                    },
+                    {
+                        "idx":  9,
+                        "depth":  0.5,
+                        "wordPos":  3040,
+                        "code":  "ZULU-99099-IA"
+                    },
+                    {
+                        "idx":  10,
+                        "depth":  0.5619,
+                        "wordPos":  3416,
+                        "code":  "ZULU-1101010-JA"
+                    },
+                    {
+                        "idx":  11,
+                        "depth":  0.6238,
+                        "wordPos":  3792,
+                        "code":  "ZULU-1211111-KA"
+                    },
+                    {
+                        "idx":  12,
+                        "depth":  0.6856,
+                        "wordPos":  4168,
+                        "code":  "ZULU-1321212-LA"
+                    },
+                    {
+                        "idx":  13,
+                        "depth":  0.7475,
+                        "wordPos":  4544,
+                        "code":  "ZULU-1431313-MA"
+                    },
+                    {
+                        "idx":  14,
+                        "depth":  0.8094,
+                        "wordPos":  4920,
+                        "code":  "ZULU-1541414-NA"
+                    },
+                    {
+                        "idx":  15,
+                        "depth":  0.8713,
+                        "wordPos":  5297,
+                        "code":  "ZULU-1651515-OA"
+                    },
+                    {
+                        "idx":  16,
+                        "depth":  0.9331,
+                        "wordPos":  5672,
+                        "code":  "ZULU-1761616-PA"
+                    },
+                    {
+                        "idx":  17,
+                        "depth":  0.995,
+                        "wordPos":  6049,
+                        "code":  "ZULU-1871717-QA"
+                    }
+                ],
+    "found":  [
+                  "A1@0%",
+                  "A2@7%",
+                  "A3@13%",
+                  "A4@19%",
+                  "A5@25%",
+                  "A6@31%",
+                  "A7@38%",
+                  "A8@44%",
+                  "A9@50%",
+                  "A10@56%",
+                  "A11@62%",
+                  "A12@69%",
+                  "A13@75%",
+                  "A14@81%",
+                  "A15@87%",
+                  "A16@93%",
+                  "A17@100%"
+              ],
+    "missed":  [
+
+               ],
+    "answer":  "A1=ZULU-11011-AA\nA2=ZULU-22022-BA\nA3=ZULU-33033-CA\nA4=ZULU-44044-DA\nA5=ZULU-55055-EA\nA6=ZULU-66066-FA\nA7=ZULU-77077-GA\nA8=ZULU-88088-HA\nA9=ZULU-99099-IA\nA10=ZULU-1101010-JA\nA11=ZULU-1211111-KA\nA12=ZULU-1321212-LA\nA13=ZULU-1431313-MA\nA14=ZULU-1541414-NA\nA15=ZULU-1651515-OA\nA16=ZULU-1761616-PA\nA17=ZULU-1871717-QA"
+}

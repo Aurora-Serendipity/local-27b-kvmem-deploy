@@ -1,0 +1,39 @@
+MIT License
+
+Copyright (c) 2026 Aurora-Serendipity
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---------------------------------------------------------------------------
+
+注意 / NOTICE
+
+本 MIT 许可**仅覆盖本仓库中由仓库作者原创的内容**：
+脚本（launchers/*.ps1, launchers/*.cmd, tools/*）、聊天页（launchers/聊天.html）、
+文档（README.md, docs/*, launchers/使用手册-本地模型.md）与实测数据（evidence/*）。
+
+本仓库**不包含**下列第三方制品，它们各有自己的许可与署名要求，以各自上游为准：
+  - 模型权重 Ternary-Bonsai-2-27B（上游：https://huggingface.co/prism-ml/Ternary-Bonsai-2-27B-gguf）
+  - 推理引擎 llama.cpp / KVMem 分层分支（上游：https://github.com/PrismML-Eng/llama.cpp）
+  - 上游 ninfer 引擎（上游：https://github.com/Neroued/ninfer）
+  - FFmpeg、CUDA 运行库及其它 vendor 组件
+
+模型署名（如你在作品中使用了该模型，请照此标注）：
+  Created using Bonsai by Prism ML.
+  Bonsai 2 27B © 2026-present Prism ML, Inc.；Built on Qwen3.8-27B © 2026 Alibaba Cloud.

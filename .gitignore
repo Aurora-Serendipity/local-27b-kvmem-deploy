@@ -1,0 +1,40 @@
+# 大件制品（本仓库刻意不包含）
+*.gguf
+*.exe
+*.dll
+*.bin
+*.safetensors
+
+# 个人数据与本地产物（绝不上传）
+会话记录/
+会话记录/**
+
+# 运行日志与临时文件
+*.log
+*.err
+*.tmp
+_arena-check*
+_body*.json
+_sweep*.json
+_q1_body.json
+_q2_body.json
+_rg_*.json
+_fullcfg_t*.json
+_st*.json
+_think_stream.json
+_stream_body.json
+_effort.json
+_sumtest.json
+_strict.json
+_cache_body.json
+_ceil_body.json
+_clean_t*.json
+_oe*.json
+_lcprobe*.json
+
+# 编辑器/系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

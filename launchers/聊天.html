@@ -1,0 +1,1575 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>本地模型 · 聊天</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --line: #262b36;
+        --fg: #e6e9ef;
+        --dim: #98a2b3;
+        --accent: #4f8cff;
+        --user: #1d2634;
+        --think: #141821;
+        --ok: #3fb950;
+        --warn: #d29922;
+        --bad: #f85149;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font:
+          15px/1.6 "Microsoft YaHei",
+          system-ui,
+          sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      header h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+      header .sub {
+        color: var(--dim);
+        font-size: 12px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      header .right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--dim);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      .shell {
+        flex: 1;
+        display: flex;
+        min-height: 0;
+      }
+      aside {
+        width: 250px;
+        flex: 0 0 250px;
+        border-right: 1px solid var(--line);
+        background: #12151b;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      aside.hide {
+        display: none;
+      }
+      .side-top {
+        padding: 10px;
+        border-bottom: 1px solid var(--line);
+      }
+      .side-top button {
+        width: 100%;
+      }
+      .side-top input {
+        width: 100%;
+        margin-top: 8px;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 6px 8px;
+        font: inherit;
+        font-size: 13px;
+      }
+      .list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 6px;
+      }
+      .item {
+        padding: 8px 9px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 1px solid transparent;
+        margin-bottom: 4px;
+      }
+      .item:hover {
+        background: #1b1f28;
+      }
+      .item.on {
+        background: #1d2634;
+        border-color: #2f4a7a;
+      }
+      .item .t {
+        font-size: 13px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-right: 44px;
+      }
+      .item .m {
+        color: var(--dim);
+        font-size: 11px;
+        display: flex;
+        gap: 8px;
+        margin-top: 2px;
+      }
+      .item .acts {
+        float: right;
+        opacity: 0.6;
+        font-size: 12px;
+      }
+      .item .acts span {
+        margin-left: 6px;
+      }
+      .item .acts span:hover {
+        color: var(--accent);
+      }
+      .side-bottom {
+        border-top: 1px solid var(--line);
+        padding: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .side-bottom button {
+        flex: 1 1 46%;
+        font-size: 12px;
+        padding: 6px 8px;
+      }
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      #chat {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px;
+      }
+      .msg {
+        max-width: 900px;
+        margin: 0 auto 14px;
+        display: flex;
+        gap: 10px;
+      }
+      .msg .who {
+        flex: 0 0 46px;
+        color: var(--dim);
+        font-size: 12px;
+        padding-top: 4px;
+        text-align: right;
+      }
+      .msg .body {
+        flex: 1;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        min-width: 0;
+      }
+      .msg.user .body {
+        background: var(--user);
+      }
+      .msg.err .body {
+        border-color: #7a2b2b;
+        background: #2a1717;
+        color: #ffb4b4;
+      }
+      .meta {
+        color: var(--dim);
+        font-size: 11px;
+        margin-top: 6px;
+      }
+      .thinkbox {
+        border: 1px dashed var(--line);
+        background: var(--think);
+        border-radius: 8px;
+        padding: 8px 10px;
+        margin-bottom: 8px;
+        color: var(--dim);
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .thinkbox .th {
+        cursor: pointer;
+        user-select: none;
+        color: #8fb6ff;
+        font-size: 12px;
+      }
+      .thinkbox .tc {
+        margin-top: 6px;
+      }
+      .thinkbox.collapsed .tc {
+        display: none;
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        background: var(--panel);
+        padding: 8px 14px 10px;
+      }
+      .wrap {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      .gauge {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--dim);
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+      }
+      .bar {
+        flex: 1 1 120px;
+        height: 6px;
+        background: #222833;
+        border-radius: 4px;
+        overflow: hidden;
+        min-width: 100px;
+      }
+      .bar > i {
+        display: block;
+        height: 100%;
+        width: 0;
+        background: var(--ok);
+      }
+      textarea {
+        width: 100%;
+        min-height: 60px;
+        max-height: 200px;
+        resize: vertical;
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font: inherit;
+        outline: none;
+      }
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        flex-wrap: wrap;
+        font-size: 13px;
+      }
+      button {
+        background: var(--accent);
+        color: #fff;
+        border: 0;
+        border-radius: 8px;
+        padding: 7px 14px;
+        font: inherit;
+        cursor: pointer;
+      }
+      button.ghost {
+        background: transparent;
+        border: 1px solid var(--line);
+        color: var(--fg);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      select,
+      input[type="number"] {
+        background: var(--bg);
+        color: var(--fg);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 5px 6px;
+        font: inherit;
+        font-size: 13px;
+      }
+      input[type="number"] {
+        width: 64px;
+      }
+      .stat {
+        color: var(--dim);
+        font-size: 12px;
+        margin-left: auto;
+      }
+      .hint {
+        color: var(--dim);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      label.chk {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        cursor: pointer;
+      }
+      .toast {
+        position: fixed;
+        right: 16px;
+        bottom: 16px;
+        background: #1d2634;
+        border: 1px solid #2f4a7a;
+        color: var(--fg);
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 13px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        pointer-events: none;
+        max-width: 440px;
+        z-index: 9;
+      }
+      .toast.on {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <button
+        id="toggleSide"
+        class="ghost"
+        style="padding: 4px 10px"
+        title="显示/隐藏会话列表"
+      >
+        ☰
+      </button>
+      <h1>本地模型 · Bonsai-2-27B</h1>
+      <span class="sub" id="hdrConv">（新对话）</span>
+      <span class="right">
+        <span id="hdrEngine">引擎：检测中…</span>
+        <span id="hdrSave"></span>
+      </span>
+    </header>
+
+    <div class="shell">
+      <aside id="side">
+        <div class="side-top">
+          <button id="newConv">＋ 新建对话</button>
+          <input id="search" placeholder="搜索对话…" autocomplete="off" />
+        </div>
+        <div class="list" id="list"></div>
+        <div class="side-bottom">
+          <button class="ghost" id="exportCur">导出当前</button>
+          <button class="ghost" id="exportAll">导出全部</button>
+          <button class="ghost" id="importBtn">导入 JSON</button>
+          <button
+            class="ghost"
+            id="pickDir"
+            title="选一个文件夹，之后每轮自动把对话写成 .json 文件"
+          >
+            备份到文件夹
+          </button>
+          <button
+            class="ghost"
+            id="restoreDir"
+            title="从备份文件夹把会话读回来"
+          >
+            从文件夹恢复
+          </button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".json,application/json"
+            multiple
+            hidden
+          />
+        </div>
+      </aside>
+
+      <main>
+        <div id="chat"></div>
+        <footer>
+          <div class="wrap">
+            <div class="gauge">
+              <span id="gaugeText">本会话 ≈ 0 token</span>
+              <span class="bar"><i id="gaugeBar"></i></span>
+              <label
+                class="chk"
+                title="临时手段：只是这一次发送少带几轮，会话历史一条不动，取消勾选立刻恢复。（省钱省时间，但那些旧内容这次对模型是隐身的）"
+                ><input type="checkbox" id="trimToggle" /> 只带最近</label
+              >
+              <input type="number" id="trimN" value="10" min="1" max="200" />
+              <span
+                >轮<b style="color: var(--dim); font-weight: 400"
+                  >（临时 · 不改历史）</b
+                ></span
+              >
+              <span style="color: var(--line)">｜</span>
+              <span>压缩时保留最近</span>
+              <input type="number" id="keepN" value="4" min="1" max="100" />
+              <span>轮原文</span>
+              <button
+                class="ghost"
+                id="compressBtn"
+                style="padding: 3px 9px; font-size: 12px"
+                title="永久手段：把更早的对话交给模型写成摘要存进会话，之后每轮都带着这份摘要；原文进「已压缩原文」，可查看、可一键还原。"
+              >
+                压缩上下文<b style="font-weight: 400"
+                  >（永久 · 摘要+原文存档）</b
+                >
+              </button>
+              <button
+                class="ghost"
+                id="archBtn"
+                style="padding: 3px 9px; font-size: 12px"
+                title="查看被压缩掉的原文（只读），里面可以一键还原"
+              >
+                已压缩原文（0）
+              </button>
+            </div>
+            <textarea
+              id="q"
+              placeholder="在这里输入你的问题…（Enter 发送，Shift+Enter 换行）"
+            ></textarea>
+            <div class="row">
+              <button id="send">发送</button>
+              <button id="stop" class="ghost" disabled>停止</button>
+              <label class="chk"
+                ><input type="checkbox" id="think" /> 先推理再答（思考）</label
+              >
+              <label id="effortWrap" hidden style="color: var(--dim)"
+                >强度
+                <select id="effort">
+                  <option value="low">低（快）</option>
+                  <option value="medium" selected>中</option>
+                  <option value="xhigh">高（稳）</option>
+                </select>
+              </label>
+              <label style="color: var(--dim)"
+                >风格
+                <select id="temp">
+                  <option value="">默认</option>
+                  <option value="0">精确（写代码用）</option>
+                  <option value="1">发散</option>
+                </select>
+              </label>
+              <span class="stat" id="stat"></span>
+            </div>
+            <div class="hint">
+              单次回答最长 8192
+              token（<b>思考也算在里面</b>）；要读超大文件请用长上下文档，并把大文件放在<b>第一个问题</b>。对话自动保存在本机，左侧可切换/改名/删除。<br />
+              <b>这两个别混：</b>「只带最近 N
+              轮」＝<b>临时少发</b>（这次不把旧内容发给模型，历史一条不动，取消勾选就恢复）；「压缩上下文」＝<b>永久写成摘要</b>（旧内容让模型浓缩后一直带着，原文存档、可一键还原）。
+            </div>
+          </div>
+        </footer>
+      </main>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+      /* =========================================================================
+   本地模型聊天页 v3
+   A) 会话存在浏览器本地（IndexedDB，失败退 localStorage）：多会话/切换/改名/删除/搜索/导出/导入
+   B) 用 File System Access 把每轮对话自动写成 .json 落盘到指定文件夹（无需常驻进程）
+   C) 长度守卫：读 /props 拿真实 n_ctx，估算 token；支持"只带最近N轮"与"永久丢弃最早N轮"
+   D) 多标签同步：localStorage 信号 + storage 事件；同一会话并发编辑以最后写入为准
+   ========================================================================= */
+      const API = "http://127.0.0.1:18200/v1/chat/completions";
+      const PROPS = "http://127.0.0.1:18200/props";
+      const MAXTOK = 8192;
+      const SYNC_KEY = "lmchat:sync";
+
+      const $ = (id) => document.getElementById(id);
+      const chat = $("chat"),
+        q = $("q"),
+        stat = $("stat"),
+        listEl = $("list");
+      let convs = [],
+        cur = null,
+        controller = null,
+        nCtx = 0,
+        dirHandle = null,
+        saveTimer = null,
+        showArchive = false;
+
+      /* ---------------- 存储层 ---------------- */
+      const LS_PREFIX = "lmchat:conv:";
+      let useLS = false,
+        db = null;
+      function idbOpen() {
+        return new Promise((res, rej) => {
+          const r = indexedDB.open("lmchat", 1);
+          r.onupgradeneeded = () => {
+            const d = r.result;
+            if (!d.objectStoreNames.contains("convs"))
+              d.createObjectStore("convs", { keyPath: "id" });
+            if (!d.objectStoreNames.contains("meta"))
+              d.createObjectStore("meta", { keyPath: "k" });
+          };
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
+          setTimeout(() => rej(new Error("idb timeout")), 4000);
+        });
+      }
+      async function initStore() {
+        try {
+          db = await idbOpen();
+        } catch (e) {
+          useLS = true;
+        }
+      }
+      function req(r) {
+        return new Promise((res, rej) => {
+          r.onsuccess = () => res(r.result);
+          r.onerror = () => rej(r.error);
+        });
+      }
+      async function storeAll() {
+        if (useLS) {
+          const out = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith(LS_PREFIX)) {
+              try {
+                out.push(JSON.parse(localStorage.getItem(k)));
+              } catch (e) {}
+            }
+          }
+          return out;
+        }
+        const tx = db.transaction("convs", "readonly");
+        return (await req(tx.objectStore("convs").getAll())) || [];
+      }
+      async function storePut(c) {
+        if (useLS) {
+          localStorage.setItem(LS_PREFIX + c.id, JSON.stringify(c));
+          return;
+        }
+        const tx = db.transaction("convs", "readwrite");
+        tx.objectStore("convs").put(c);
+        return new Promise((res, rej) => {
+          tx.oncomplete = res;
+          tx.onerror = () => rej(tx.error);
+        });
+      }
+      async function storeDel(id) {
+        if (useLS) {
+          localStorage.removeItem(LS_PREFIX + id);
+          return;
+        }
+        const tx = db.transaction("convs", "readwrite");
+        tx.objectStore("convs").delete(id);
+        return new Promise((res, rej) => {
+          tx.oncomplete = res;
+          tx.onerror = () => rej(tx.error);
+        });
+      }
+      async function metaGet(k) {
+        if (useLS) {
+          const v = localStorage.getItem("lmchat:meta:" + k);
+          return v ? JSON.parse(v) : undefined;
+        }
+        const tx = db.transaction("meta", "readonly");
+        const r = await req(tx.objectStore("meta").get(k));
+        return r ? r.v : undefined;
+      }
+      async function metaSet(k, v) {
+        if (useLS) {
+          localStorage.setItem("lmchat:meta:" + k, JSON.stringify(v));
+          return;
+        }
+        const tx = db.transaction("meta", "readwrite");
+        tx.objectStore("meta").put({ k, v });
+        return new Promise((res, rej) => {
+          tx.oncomplete = res;
+          tx.onerror = () => rej(tx.error);
+        });
+      }
+
+      /* ---------------- 工具 ---------------- */
+      function toast(msg, ms) {
+        const t = $("toast");
+        t.textContent = msg;
+        t.classList.add("on");
+        clearTimeout(t._h);
+        t._h = setTimeout(() => t.classList.remove("on"), ms || 2800);
+      }
+      function nowStr(ts) {
+        const d = new Date(ts || Date.now());
+        const p = (n) => String(n).padStart(2, "0");
+        return (
+          d.getFullYear() +
+          "-" +
+          p(d.getMonth() + 1) +
+          "-" +
+          p(d.getDate()) +
+          " " +
+          p(d.getHours()) +
+          ":" +
+          p(d.getMinutes())
+        );
+      }
+      function uid() {
+        return (
+          "c" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+        );
+      }
+      function estTokens(s) {
+        if (!s) return 0;
+        let cjk = 0,
+          other = 0;
+        for (const ch of s) {
+          const c = ch.codePointAt(0);
+          if (
+            (c >= 0x2e80 && c <= 0x9fff) ||
+            (c >= 0xf900 && c <= 0xfaff) ||
+            (c >= 0xff00 && c <= 0xffef) ||
+            (c >= 0x3000 && c <= 0x303f)
+          )
+            cjk++;
+          else other++;
+        }
+        return Math.ceil(cjk * 0.85 + other / 3.6);
+      }
+      // 只带最近 N 轮时：system（压缩摘要）永远保留，否则摘要会被切掉、模型立刻"失忆"
+      function applyTrim(msgs, trimN) {
+        if (!(trimN > 0)) return msgs;
+        const sys = msgs.filter((m) => m.role === "system");
+        const rest = msgs.filter((m) => m.role !== "system");
+        return sys.concat(rest.slice(-trimN * 2));
+      }
+      function convTokens(c, trimN) {
+        const msgs = applyTrim((c && c.messages) || [], trimN);
+        let t = 0;
+        for (const m of msgs) t += estTokens(m.content) + 6;
+        return t;
+      }
+      function safeFileName(s) {
+        return (s || "对话").replace(/[\\/:*?"<>|\r\n\t]/g, "_").slice(0, 40);
+      }
+      function download(name, text) {
+        const b = new Blob([text], { type: "application/json;charset=utf-8" });
+        const u = URL.createObjectURL(b);
+        const a = document.createElement("a");
+        a.href = u;
+        a.download = name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(u), 4000);
+      }
+      function convToJson(c) {
+        return JSON.stringify(
+          {
+            schema: "lmchat/1",
+            exportedAt: new Date().toISOString(),
+            conversation: c,
+          },
+          null,
+          2,
+        );
+      }
+
+      /* ---------------- 侧栏 ---------------- */
+      function renderList() {
+        const kw = ($("search").value || "").trim().toLowerCase();
+        const arr = convs
+          .slice()
+          .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+          .filter(
+            (c) =>
+              !kw ||
+              (c.title || "").toLowerCase().includes(kw) ||
+              (c.messages || []).some((m) =>
+                (m.content || "").toLowerCase().includes(kw),
+              ),
+          );
+        listEl.innerHTML = "";
+        if (!arr.length) {
+          listEl.innerHTML =
+            '<div style="color:var(--dim);font-size:12px;padding:8px">没有匹配的对话。</div>';
+          return;
+        }
+        for (const c of arr) {
+          const d = document.createElement("div");
+          d.className = "item" + (cur && cur.id === c.id ? " on" : "");
+          d.innerHTML =
+            '<div class="t"></div><div class="m"><span class="c"></span><span class="tm"></span><span class="acts"><span title="重命名" class="rn">✏️</span><span title="删除" class="dl">🗑</span></span></div>';
+          d.querySelector(".t").textContent = c.title || "（无标题）";
+          d.querySelector(".c").textContent =
+            Math.ceil((c.messages || []).length / 2) + " 轮";
+          d.querySelector(".tm").textContent = nowStr(c.updatedAt);
+          d.querySelector(".rn").onclick = (ev) => {
+            ev.stopPropagation();
+            renameConv(c.id);
+          };
+          d.querySelector(".dl").onclick = (ev) => {
+            ev.stopPropagation();
+            deleteConv(c.id);
+          };
+          d.onclick = () => switchConv(c.id);
+          listEl.appendChild(d);
+        }
+      }
+      function setHdr() {
+        $("hdrConv").textContent = cur
+          ? cur.title || "（无标题）"
+          : "（新对话）";
+      }
+
+      /* ---------------- 会话操作 ---------------- */
+      async function newConv(activate) {
+        const c = {
+          id: uid(),
+          title: "新对话",
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [],
+        };
+        convs.push(c);
+        await storePut(c);
+        if (activate !== false) {
+          cur = c;
+          renderChat();
+        }
+        renderList();
+        setHdr();
+        saveMetaCur();
+        return c;
+      }
+      async function switchConv(id) {
+        if (controller) {
+          controller.abort();
+          toast("已停止上一轮生成");
+        }
+        const c = convs.find((x) => x.id === id);
+        if (!c) return;
+        cur = c;
+        showArchive = false;
+        renderChat();
+        renderList();
+        setHdr();
+        updateGauge();
+        saveMetaCur();
+      }
+      function saveMetaCur() {
+        metaSet("lastActiveId", cur ? cur.id : "");
+      }
+      async function renameConv(id) {
+        const c = convs.find((x) => x.id === id);
+        if (!c) return;
+        const t = prompt("重命名这个对话：", c.title || "");
+        if (t === null) return;
+        c.title = t.trim() || "无标题";
+        c.updatedAt = Date.now();
+        await storePut(c);
+        renderList();
+        setHdr();
+        scheduleBackup(c);
+      }
+      async function deleteConv(id) {
+        const c = convs.find((x) => x.id === id);
+        if (!c) return;
+        if (
+          !confirm(
+            "删除对话「" +
+              (c.title || "") +
+              "」？此操作不可撤销（浏览器本地记录）。",
+          )
+        )
+          return;
+        convs = convs.filter((x) => x.id !== id);
+        await storeDel(id);
+        if (cur && cur.id === id) {
+          cur = convs[0] || null;
+          if (!cur) {
+            await newConv(true);
+          } else {
+            renderChat();
+          }
+        }
+        renderList();
+        setHdr();
+        updateGauge();
+        toast("已删除");
+        localStorage.setItem(
+          SYNC_KEY,
+          JSON.stringify({ t: Date.now(), id, action: "delete" }),
+        );
+      }
+
+      /* ---------------- 渲染对话 ---------------- */
+      function addMsgEl(role, text, cls) {
+        const wrap = document.createElement("div");
+        wrap.className = "msg " + (cls || role);
+        const who = document.createElement("div");
+        who.className = "who";
+        who.textContent =
+          role === "user" ? "我" : role === "assistant" ? "模型" : "提示";
+        const body = document.createElement("div");
+        body.className = "body";
+        body.textContent = text || "";
+        wrap.appendChild(who);
+        wrap.appendChild(body);
+        chat.appendChild(wrap);
+        chat.scrollTop = chat.scrollHeight;
+        return body;
+      }
+      function thinkBox(bodyEl, text, collapsed) {
+        const box = document.createElement("div");
+        box.className = "thinkbox" + (collapsed ? " collapsed" : "");
+        const th = document.createElement("div");
+        th.className = "th";
+        const tc = document.createElement("div");
+        tc.className = "tc";
+        tc.textContent = text || "";
+        const setTh = () => {
+          const n = tc.textContent.length;
+          th.textContent = box.classList.contains("collapsed")
+            ? "💭 思考过程（" + n + " 字，已收起） — 点击展开"
+            : "💭 思考过程（" + n + " 字） — 点击收起";
+        };
+        th.onclick = () => {
+          box.classList.toggle("collapsed");
+          setTh();
+        };
+        box.appendChild(th);
+        box.appendChild(tc);
+        bodyEl.parentElement.insertBefore(box, bodyEl);
+        setTh();
+        return { box, th, tc, setTh };
+      }
+      function renderChat() {
+        chat.innerHTML = "";
+        if (!cur || !cur.messages.length) {
+          addMsgEl(
+            "提示",
+            "新对话。输入问题按回车即可（Enter 发送，Shift+Enter 换行）。\n\n· 大文件请放在本次对话的第一个问题\n· 对话自动保存在本机浏览器里，左侧可切换 / 改名 / 删除\n· 想让它先推理再答，勾选下面的「先推理再答（思考）」",
+          );
+          updateGauge();
+          return;
+        }
+        // 已压缩的原文：默认不显示，点「已压缩原文」才展开（只读，可一键还原）
+        if (showArchive && (cur.archived || []).length) {
+          const wrap = document.createElement("div");
+          wrap.className = "msg";
+          const who = document.createElement("div");
+          who.className = "who";
+          who.textContent = "存档";
+          const body = document.createElement("div");
+          body.className = "body";
+          body.style.borderStyle = "dashed";
+          body.style.color = "var(--dim)";
+          const head = document.createElement("div");
+          head.innerHTML =
+            "<b>已压缩的原文（" +
+            cur.archived.length +
+            " 条，只读）</b> — 这些内容已不在发给模型的上下文里";
+          body.appendChild(head);
+          const btn = document.createElement("button");
+          btn.className = "ghost";
+          btn.style.cssText = "padding:3px 9px;font-size:12px;margin:8px 0";
+          btn.textContent = "还原全部原文（移除摘要）";
+          btn.onclick = restoreArchive;
+          body.appendChild(btn);
+          for (const m of cur.archived) {
+            const d = document.createElement("div");
+            d.style.cssText =
+              "margin-top:6px;padding-top:6px;border-top:1px dashed var(--line)";
+            d.textContent = (m.role === "user" ? "我：" : "模型：") + m.content;
+            body.appendChild(d);
+          }
+          wrap.appendChild(who);
+          wrap.appendChild(body);
+          chat.appendChild(wrap);
+        }
+        for (const m of cur.messages) {
+          const b = addMsgEl(m.role, m.content);
+          if (m.reasoning) thinkBox(b, m.reasoning, true);
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent =
+            nowStr(m.ts) +
+            (m.isSummary ? " · 📦 压缩摘要" : "") +
+            (m.reasoning ? " · 思考 " + m.reasoning.length + " 字" : "") +
+            (m.partial ? " · 未完成" : "");
+          b.appendChild(meta);
+        }
+        updateGauge();
+      }
+
+      /* ---------------- 长度守卫 ---------------- */
+      function updateGauge() {
+        if (!cur) return;
+        const trimN = $("trimToggle").checked
+          ? Math.max(1, parseInt($("trimN").value || "10", 10))
+          : 0;
+        const used = convTokens(cur, trimN),
+          limit = nCtx || 131072;
+        const pct = Math.min(100, Math.round((used / limit) * 100));
+        $("gaugeText").textContent =
+          "本会话 ≈ " +
+          used.toLocaleString() +
+          " / " +
+          limit.toLocaleString() +
+          " token（" +
+          pct +
+          "%）" +
+          (trimN ? "，只带最近 " + trimN + " 轮" : "") +
+          (cur.archived && cur.archived.length
+            ? "（另有已压缩原文 " + cur.archived.length + " 条，不占上下文）"
+            : "");
+        const bar = $("gaugeBar");
+        bar.style.width = pct + "%";
+        bar.style.background =
+          pct >= 85 ? "var(--bad)" : pct >= 60 ? "var(--warn)" : "var(--ok)";
+        updateArchBtn();
+      }
+      $("trimToggle").addEventListener("change", updateGauge);
+      $("trimN").addEventListener("input", updateGauge);
+
+      /* -------- 压缩上下文：交给模型写摘要，原文存档可查看/还原（不再永久丢弃） -------- */
+      function updateArchBtn() {
+        const n = cur && cur.archived ? cur.archived.length : 0;
+        $("archBtn").textContent =
+          "已压缩原文（" + n + "）" + (showArchive ? " · 正在查看" : "");
+      }
+      async function compressContext() {
+        if (!cur || controller) return;
+        const keepN = Math.max(1, parseInt($("keepN").value || "4", 10));
+        const cut = cur.messages.length - keepN * 2;
+        if (cut < 2) {
+          toast("要压缩的内容太少：至少要有超过 " + keepN + " 轮的历史");
+          return;
+        }
+        const older = cur.messages.slice(0, cut);
+        const before = convTokens(cur, 0);
+        if (
+          !confirm(
+            "把最早的 " +
+              Math.round(cut / 2) +
+              " 轮（" +
+              cut +
+              " 条）交给模型压缩成摘要？\n\n" +
+              "· 原文不会丢：存进「已压缩原文」，可查看、可一键还原\n" +
+              "· 最近 " +
+              keepN +
+              " 轮保持原样\n" +
+              "· 压缩是一次模型调用，通常几秒到几十秒",
+          )
+        )
+          return;
+        stat.textContent = "压缩中…（模型正在写摘要）";
+        $("send").disabled = true;
+        const transcript = older
+          .map((m) => (m.role === "user" ? "用户：" : "助手：") + m.content)
+          .join("\n\n");
+        const prompt =
+          "你是对话压缩器。把下面这段对话压缩成一份忠实、紧凑的摘要，供后续继续对话使用。\n" +
+          "要求：\n" +
+          "1) 必须保留：已确认的事实与结论、代码/命令/文件名/数值/报错原文、用户的偏好与约束、尚未解决或待办的事项；\n" +
+          "2) 可以丢弃：寒暄、重复、已被推翻的内容；\n" +
+          "3) 用中文、条目式、尽量短（目标 400 字以内）；\n" +
+          "4) 只输出摘要本身，不要任何前言、后语或解释。\n\n" +
+          "===== 对话开始 =====\n" +
+          transcript +
+          "\n===== 对话结束 =====";
+        try {
+          const resp = await fetch(API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "local",
+              messages: [{ role: "user", content: prompt }],
+              max_tokens: 1200,
+              temperature: 0,
+            }),
+          });
+          if (!resp.ok)
+            throw new Error(
+              "HTTP " + resp.status + " " + (await resp.text()).slice(0, 200),
+            );
+          const j = await resp.json();
+          const summary = (
+            (j.choices &&
+              j.choices[0] &&
+              j.choices[0].message &&
+              j.choices[0].message.content) ||
+            ""
+          ).trim();
+          if (!summary) throw new Error("模型返回空摘要");
+          cur.archived = (cur.archived || []).concat(older);
+          // 实测（2026-10-05）：摘要若放在 user 消息里，模型会把它当"外部资料"，
+          // 问"我叫什么"会答"你没有提供"（0/3）；改成 system 角色则 3/3 正确，
+          // 所以这里用 system（摘要永远在消息最前面，模板允许）。
+          cur.messages = [
+            {
+              role: "system",
+              content:
+                "【对话背景备忘】以下是本次对话此前内容的压缩摘要。" +
+                "这些事实已经确认过、你已经知道，回答时请直接使用，" +
+                "不要回答「用户没有提供」：\n" +
+                summary,
+              ts: Date.now(),
+              isSummary: true,
+            },
+          ].concat(cur.messages.slice(cut));
+          cur.updatedAt = Date.now();
+          await storePut(cur);
+          renderChat();
+          renderList();
+          updateGauge();
+          scheduleBackup(cur);
+          const after = convTokens(cur, 0);
+          toast(
+            "已压缩 " +
+              Math.round(cut / 2) +
+              " 轮：≈" +
+              before.toLocaleString() +
+              " → ≈" +
+              after.toLocaleString() +
+              " token" +
+              (after >= before
+                ? "（这次没变短：被压缩的内容本来就少，摘要本身也有长度；原文已存档，可还原）"
+                : "（原文已存档，可还原）"),
+            5000,
+          );
+          localStorage.setItem(
+            SYNC_KEY,
+            JSON.stringify({ t: Date.now(), id: cur.id, action: "save" }),
+          );
+        } catch (e) {
+          toast(
+            "压缩失败：" +
+              (e && e.message ? e.message : e) +
+              "（未做任何修改）",
+            4500,
+          );
+        } finally {
+          stat.textContent = "";
+          $("send").disabled = false;
+        }
+      }
+      $("compressBtn").onclick = compressContext;
+      $("archBtn").onclick = () => {
+        if (!cur || !(cur.archived || []).length) {
+          toast("还没有已压缩的原文");
+          return;
+        }
+        showArchive = !showArchive;
+        renderChat();
+      };
+      async function restoreArchive() {
+        if (!cur || !(cur.archived || []).length) return;
+        if (
+          !confirm(
+            "把 " +
+              cur.archived.length +
+              " 条已压缩的原文还原回来？（摘要会同时移除）",
+          )
+        )
+          return;
+        cur.messages = cur.archived.concat(
+          cur.messages.filter((m) => !m.isSummary),
+        );
+        cur.archived = [];
+        cur.updatedAt = Date.now();
+        showArchive = false;
+        await storePut(cur);
+        renderChat();
+        renderList();
+        updateGauge();
+        scheduleBackup(cur);
+        toast("已还原原文");
+      }
+
+      /* ---------------- 发送 ---------------- */
+      function autoGrow() {
+        q.style.height = "auto";
+        q.style.height = Math.min(q.scrollHeight, 200) + "px";
+      }
+      q.addEventListener("input", autoGrow);
+      q.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+          ev.preventDefault();
+          send();
+        }
+      });
+
+      async function send() {
+        const text = q.value.trim();
+        if (!text || controller) return;
+        if (!cur) await newConv(true);
+        q.value = "";
+        autoGrow();
+
+        cur.messages.push({ role: "user", content: text, ts: Date.now() });
+        if (!cur.title || cur.title === "新对话")
+          cur.title = text.slice(0, 24) + (text.length > 24 ? "…" : "");
+        cur.updatedAt = Date.now();
+        await storePut(cur);
+        renderList();
+        setHdr();
+        renderChat();
+        scheduleBackup(cur);
+
+        const bodyEl = addMsgEl("assistant", "");
+        const t0 = performance.now();
+        let out = "",
+          think = "";
+        const thinking = $("think").checked;
+        const tb = thinking ? thinkBox(bodyEl, "", false) : null;
+
+        controller = new AbortController();
+        $("send").disabled = true;
+        $("stop").disabled = false;
+        stat.textContent = thinking ? "思考中…" : "生成中…";
+        $("hdrSave").textContent = "";
+
+        const trimN = $("trimToggle").checked
+          ? Math.max(1, parseInt($("trimN").value || "10", 10))
+          : 0;
+        let msgs = cur.messages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        }));
+        msgs = applyTrim(msgs, trimN);
+        const payload = {
+          model: "local",
+          messages: msgs,
+          max_tokens: MAXTOK,
+          stream: true,
+        };
+        const t = $("temp").value;
+        if (t !== "") payload.temperature = Number(t);
+        if (thinking)
+          payload.chat_template_kwargs = {
+            enable_thinking: true,
+            reasoning_effort: $("effort").value,
+          };
+
+        try {
+          const resp = await fetch(API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          if (!resp.ok)
+            throw new Error(
+              "HTTP " + resp.status + " " + (await resp.text()).slice(0, 300),
+            );
+          const reader = resp.body.getReader();
+          const dec = new TextDecoder("utf-8");
+          let buf = "";
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split("\n");
+            buf = lines.pop();
+            for (const line of lines) {
+              const s = line.trim();
+              if (!s.startsWith("data:")) continue;
+              const data = s.slice(5).trim();
+              if (data === "[DONE]") continue;
+              let j;
+              try {
+                j = JSON.parse(data);
+              } catch (e) {
+                continue;
+              }
+              const d = j.choices && j.choices[0] && j.choices[0].delta;
+              if (d) {
+                if (
+                  typeof d.reasoning_content === "string" &&
+                  d.reasoning_content.length
+                ) {
+                  think += d.reasoning_content;
+                  if (tb) {
+                    tb.tc.textContent = think;
+                    tb.setTh();
+                  }
+                  chat.scrollTop = chat.scrollHeight;
+                  stat.textContent = "思考中… " + think.length + " 字";
+                }
+                if (typeof d.content === "string" && d.content.length) {
+                  out += d.content;
+                  bodyEl.textContent = out;
+                  chat.scrollTop = chat.scrollHeight;
+                  stat.textContent = "生成中… " + out.length + " 字";
+                }
+              }
+              if (j.timings && j.timings.predicted_per_second)
+                window.__lastTimings = j.timings;
+            }
+          }
+          const secs = ((performance.now() - t0) / 1000).toFixed(1);
+          let s = "完成 · " + secs + " 秒 · " + out.length + " 字";
+          if (thinking) s += "（思考 " + think.length + " 字）";
+          const tm = window.__lastTimings;
+          if (tm)
+            s += " · decode " + tm.predicted_per_second.toFixed(1) + " t/s";
+          stat.textContent = s;
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = s;
+          bodyEl.appendChild(meta);
+          if (tb && think.length) {
+            tb.box.classList.add("collapsed");
+            tb.setTh();
+          }
+          cur.messages.push({
+            role: "assistant",
+            content: out,
+            reasoning: think || undefined,
+            ts: Date.now(),
+          });
+        } catch (e) {
+          const aborted = e && e.name === "AbortError";
+          const msg = aborted
+            ? "（已停止）"
+            : "出错了：" +
+              (e && e.message ? e.message : e) +
+              "\n\n常见原因：\n· 引擎没在跑 → 双击「一键启动-日常推荐.cmd」，看到 [就绪] 再试\n· 端口不是 18200 → 跑「状态检查.cmd」确认";
+          if (out) {
+            const mm = document.createElement("div");
+            mm.className = "meta";
+            mm.textContent = msg;
+            bodyEl.appendChild(mm);
+          } else addMsgEl("提示", msg, "err");
+          stat.textContent = aborted ? "已停止" : "失败";
+          if (out)
+            cur.messages.push({
+              role: "assistant",
+              content: out,
+              reasoning: think || undefined,
+              ts: Date.now(),
+              partial: true,
+            });
+        } finally {
+          controller = null;
+          $("send").disabled = false;
+          $("stop").disabled = true;
+          cur.updatedAt = Date.now();
+          await storePut(cur);
+          renderList();
+          updateGauge();
+          scheduleBackup(cur);
+          localStorage.setItem(
+            SYNC_KEY,
+            JSON.stringify({ t: Date.now(), id: cur.id, action: "save" }),
+          );
+        }
+      }
+      $("send").onclick = send;
+      $("stop").onclick = () => {
+        if (controller) controller.abort();
+      };
+
+      /* ---------------- 导出 / 导入 ---------------- */
+      $("exportCur").onclick = () => {
+        if (!cur) return;
+        download(
+          safeFileName(cur.title) + "__" + cur.id + ".json",
+          convToJson(cur),
+        );
+        toast("已导出当前对话（在浏览器下载目录）");
+      };
+      $("exportAll").onclick = () => {
+        download(
+          "本地模型-全部对话-" +
+            new Date().toISOString().slice(0, 10) +
+            ".json",
+          JSON.stringify(
+            {
+              schema: "lmchat/1",
+              exportedAt: new Date().toISOString(),
+              conversations: convs,
+            },
+            null,
+            2,
+          ),
+        );
+        toast("已导出 " + convs.length + " 个对话");
+      };
+      $("importBtn").onclick = () => $("fileInput").click();
+      $("fileInput").onchange = async (ev) => {
+        const files = Array.from(ev.target.files || []);
+        let added = 0;
+        for (const f of files) {
+          try {
+            const j = JSON.parse(await f.text());
+            const arr = j.conversations
+              ? j.conversations
+              : j.conversation
+                ? [j.conversation]
+                : Array.isArray(j)
+                  ? j
+                  : [];
+            for (const c of arr) {
+              if (!c || !Array.isArray(c.messages)) continue;
+              const exists = convs.some((x) => x.id === c.id);
+              const nc = {
+                id: exists ? uid() : c.id,
+                title: c.title || "导入的对话",
+                createdAt: c.createdAt || Date.now(),
+                updatedAt: Date.now(),
+                messages: c.messages,
+              };
+              convs.push(nc);
+              await storePut(nc);
+              added++;
+            }
+          } catch (e) {
+            toast("导入失败：" + f.name);
+          }
+        }
+        ev.target.value = "";
+        renderList();
+        toast("导入完成，新增 " + added + " 个对话");
+      };
+
+      /* ---------------- 方案B：落盘备份 ---------------- */
+      function setBackup(msg) {
+        $("hdrSave").textContent = msg;
+      }
+      async function ensureDir() {
+        if (!dirHandle) return false;
+        try {
+          let p = await dirHandle.queryPermission({ mode: "readwrite" });
+          if (p !== "granted")
+            p = await dirHandle.requestPermission({ mode: "readwrite" });
+          return p === "granted";
+        } catch (e) {
+          return false;
+        }
+      }
+      // 清理"同一个会话的旧标题文件"：改名后旧文件会留在备份目录里。
+      // 只删同时满足三个条件的条目：① 是文件 ② 名字以 __<本会话 id>.json 结尾
+      // ③ 不是刚写入的那个名字。→ 不会碰别的会话，也不会碰目录里任何其他文件。
+      async function cleanOldBackups(c, keepName) {
+        const suffix = "__" + c.id + ".json";
+        let removed = 0;
+        try {
+          for await (const entry of dirHandle.values()) {
+            if (entry.kind !== "file") continue;
+            if (entry.name === keepName) continue;
+            if (!entry.name.endsWith(suffix)) continue;
+            try {
+              await dirHandle.removeEntry(entry.name);
+              removed++;
+            } catch (e) {}
+          }
+        } catch (e) {}
+        return removed;
+      }
+      async function writeBackup(c) {
+        if (!c || !dirHandle) return;
+        if (!(await ensureDir())) {
+          setBackup("备份需重新授权");
+          return;
+        }
+        try {
+          const name = safeFileName(c.title) + "__" + c.id + ".json";
+          const fh = await dirHandle.getFileHandle(name, { create: true });
+          const w = await fh.createWritable();
+          await w.write(convToJson(c));
+          await w.close();
+          const removed = await cleanOldBackups(c, name);
+          setBackup(
+            "已备份 " +
+              nowStr(Date.now()).slice(11) +
+              (removed ? "（清理旧标题文件 " + removed + " 个）" : ""),
+          );
+        } catch (e) {
+          setBackup("备份失败：" + (e && e.message ? e.message : e));
+        }
+      }
+      function scheduleBackup(c) {
+        if (!dirHandle) return;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => writeBackup(c), 900);
+      }
+      $("pickDir").onclick = async () => {
+        if (!window.showDirectoryPicker) {
+          toast("此浏览器不支持文件夹备份，请用「导出全部」");
+          return;
+        }
+        try {
+          dirHandle = await window.showDirectoryPicker({
+            id: "lmchat-backup",
+            mode: "readwrite",
+          });
+          await metaSet("dirHandle", dirHandle);
+          toast("已绑定备份文件夹：" + dirHandle.name + "（以后每轮自动落盘）");
+          for (const c of convs) await writeBackup(c);
+          setBackup("备份目录：" + dirHandle.name);
+        } catch (e) {
+          if (e && e.name !== "AbortError") toast("绑定失败：" + e.message);
+        }
+      };
+      $("restoreDir").onclick = async () => {
+        if (!dirHandle) {
+          toast("先点「备份到文件夹」绑定目录");
+          return;
+        }
+        if (!(await ensureDir())) {
+          toast("需要重新授权目录");
+          return;
+        }
+        let added = 0,
+          updated = 0;
+        try {
+          for await (const entry of dirHandle.values()) {
+            if (entry.kind !== "file" || !entry.name.endsWith(".json"))
+              continue;
+            try {
+              const j = JSON.parse(await (await entry.getFile()).text());
+              const c = j.conversation ? j.conversation : j;
+              if (!c || !Array.isArray(c.messages) || !c.id) continue;
+              const i = convs.findIndex((x) => x.id === c.id);
+              if (i >= 0) {
+                if ((c.updatedAt || 0) > (convs[i].updatedAt || 0)) {
+                  convs[i] = c;
+                  await storePut(c);
+                  updated++;
+                }
+              } else {
+                convs.push(c);
+                await storePut(c);
+                added++;
+              }
+            } catch (e) {}
+          }
+          renderList();
+          toast("从文件夹恢复：新增 " + added + "，更新 " + updated);
+        } catch (e) {
+          toast("恢复失败：" + e.message);
+        }
+      };
+
+      /* ---------------- 引擎信息 ---------------- */
+      async function loadProps() {
+        try {
+          const r = await fetch(PROPS, { cache: "no-store" });
+          const j = await r.json();
+          nCtx =
+            (j.default_generation_settings &&
+              j.default_generation_settings.n_ctx) ||
+            0;
+          const p = nCtx >= 262144 ? "长上文档" : nCtx ? "日常档" : "";
+          $("hdrEngine").textContent =
+            "引擎：已就绪 · ctx " +
+            nCtx.toLocaleString() +
+            (p ? "（" + p + "）" : "");
+        } catch (e) {
+          nCtx = 0;
+          $("hdrEngine").textContent = "引擎：未启动（先双击一键启动脚本）";
+        }
+        updateGauge();
+      }
+
+      /* ---------------- 多标签同步 ---------------- */
+      // 关键：刷新列表后必须让 cur 重新指向 convs 里的那个对象（否则 cur 会"游离"，
+      // 出现"侧栏改名成功、顶部标题不变"，极端情况下还会把旧对象写回数据库）。
+      async function syncFromStore() {
+        const generating = !!controller;
+        convs = await storeAll();
+        if (cur) {
+          const fresh = convs.find((x) => x.id === cur.id);
+          if (fresh) {
+            const changed = (fresh.updatedAt || 0) !== (cur.updatedAt || 0);
+            cur = fresh; // 总是重新指向
+            if (changed && !generating) renderChat();
+          } else {
+            cur =
+              convs
+                .slice()
+                .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] ||
+              null;
+            if (cur && !generating) renderChat();
+          }
+        }
+        renderList();
+        setHdr();
+        updateGauge();
+        return generating;
+      }
+      window.addEventListener("storage", async (e) => {
+        if (e.key !== SYNC_KEY || !e.newValue) return;
+        let sig = null;
+        try {
+          sig = JSON.parse(e.newValue);
+        } catch (err) {
+          return;
+        }
+        await syncFromStore();
+        if (sig && sig.action === "save")
+          toast("另一个标签页更新了对话，已同步");
+      });
+      window.addEventListener("focus", async () => {
+        if (!controller) await syncFromStore();
+      });
+
+      /* ---------------- 其它交互 ---------------- */
+      $("newConv").onclick = () => newConv(true);
+      $("search").oninput = renderList;
+      $("toggleSide").onclick = () => $("side").classList.toggle("hide");
+      $("think").addEventListener("change", () => {
+        $("effortWrap").hidden = !$("think").checked;
+      });
+
+      /* ---------------- 启动 ---------------- */
+      (async function boot() {
+        await initStore();
+        convs = await storeAll();
+        const lastId = await metaGet("lastActiveId");
+        cur =
+          convs.find((c) => c.id === lastId) ||
+          convs
+            .slice()
+            .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))[0] ||
+          null;
+        if (!cur) await newConv(true);
+        else renderChat();
+        renderList();
+        setHdr();
+        try {
+          const h = await metaGet("dirHandle");
+          if (h) {
+            dirHandle = h;
+            setBackup("备份目录：" + h.name + "（如失效请重新绑定）");
+          }
+        } catch (e) {}
+        await loadProps();
+        setInterval(() => {
+          if (!controller) loadProps();
+        }, 30000);
+        console.log(
+          "[lmchat] ready | store=" +
+            (useLS ? "localStorage" : "IndexedDB") +
+            " | convs=" +
+            convs.length +
+            " | nCtx=" +
+            nCtx,
+        );
+      })();
+    </script>
+  </body>
+</html>

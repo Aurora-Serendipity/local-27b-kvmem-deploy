@@ -1,0 +1,16 @@
+{
+    "cpu_gb":  "6",
+    "ctx":  "262144",
+    "gen":  "8192",
+    "budget":  "32768",
+    "ratio":  "0.25",
+    "client_max_tokens":  8192,
+    "t1_prompt_tokens":  252862,
+    "t1_prefill":  250.48544938843827,
+    "t1_wall_s":  1010.4,
+    "t1_needle":  true,
+    "t1_answer":  "KIWI-4821-QX",
+    "t3_out_tokens":  8192,
+    "t3_finish":  "length",
+    "t3_decode":  27.367011190890356
+}

@@ -1,0 +1,667 @@
+{
+  "schema": "receipt/1",
+  "tier": "第 3 包 · 超低显存档（llama.cpp + KVMem + 三元 Bonsai-2-27B PTQ1_0）",
+  "deployment_date": "2026-09-29",
+  "order_discipline": "证否优先 → 实测裁决 → 回执沉淀",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "compute_cap": "8.9 (Ada)",
+    "sm_count": "24",
+    "vram_mib": "8188 (8 GiB)",
+    "host_ram_gb": "31.6",
+    "driver": "616.64",
+    "os": "Windows 11 家庭版中文版 (NT 10.0.26200.0)",
+    "gpu_probe_raw": "{\"probe\":\"gpu-probe/1\",\"cuda_runtime\":\"13.4\",\"device_count\":1,\"devices\":[{\"name\":\"NVIDIA GeForce RTX 4060 Laptop GPU\",\"cc\":\"8.9\",\"sm\":24,\"vram_mib\":8187,\"shared_per_block\":49152,\"shared_per_block_optin\":101376,\"bw_gbs_theory\":256.0}]}",
+    "engine_arch_note": "BUILD-INFO.json: CMAKE_CUDA_ARCHITECTURES=75-real;80-real;86-real;89-real;90-real;120a-real ⇒ 本卡 sm_89 为原生 cubin，不是 PTX JIT（与 判据.txt【九】的说法一致）"
+  },
+  "package_path": "D:\\Local Model\\pkg3-lowvram-llama-kvmem\\pkg3-lowvram-llama-kvmem  (纯 ASCII；父目录含空格，实测无影响，bat 全程以 %~dp0 引号引用)",
+  "engine_sha256": "B232E501BD3F320384A5111C1432A19DC20DC2D01364015136CAD66F56B18F5E",
+  "artifact_sha256": "53107F530AA52EB00912263AB1EE29BD199261C87CD7B4AD4CA1318C1FE33EE3",
+  "sha_verification": "两件与 README §6 / 复现手册 0.1 的期望值逐位相同；自检-搬家.ps1 [E] SHA256SUMS.txt -Check rc=0、[F] 覆盖 63/63",
+  "steps": [
+    {
+      "step": "0 前置自检",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\自检-搬家.ps1",
+      "expected": "✅ 可搬运（路径无关）自检通过",
+      "observed": "FAIL=0 warn=0 rc=0；[A]44 文本件 0 处绝对路径、[B]可解析、[C]bat 纯 ASCII、[D]换目录后仍全绿、[E]清单 rc=0、[F]覆盖 63/63、[G]编码合规",
+      "ok": true
+    },
+    {
+      "step": "0b 卡/引擎匹配",
+      "command": "powershell -NoProfile -ExecutionPolicy Bypass -File .\\自检-引擎与卡匹配.ps1 + gpu-probe.exe",
+      "expected": "读出 cc/SM，判引擎是否拒卡",
+      "observed": "cc=8.9 SM=24；两个 exe arch-gate=no rk4v4-gate=no（本档不吃 cc 硬门）；sha16: server=B232E501BD3F3203，cli=6BBEA84E2D293860",
+      "ok": true
+    },
+    {
+      "step": "1 起服务",
+      "command": ".\\start-lowvram.bat",
+      "expected": "日志出现 listening + kvmem=1 ... spec=off",
+      "observed": "listening on http://127.0.0.1:18200  model=Ternary-Bonsai-2-27B-PTQ1_0.gguf kvmem=1 method=recency n_ctx=65536 spec=off n_max=3 think=0 rbudget=-1 qmax=512；KVMEM_TIERS cpu_bytes=12884901888 cpu_slots=5461 slot_bytes=2359296（与 判据.txt【二】第 3 条的 12884901888/5461 逐位相同）；Knobs in use: ctx=65536 kv=q4_0 sink=4096 budget=8192 gen-reserve=4096 method=recency gpu-ratio=0.10",
+      "ok": true
+    },
+    {
+      "step": "2 判就绪",
+      "command": "curl.exe -s -o NUL -w \"%{http_code}\" http://127.0.0.1:18200/v1/models",
+      "expected": "200（文档口径 约 17 s）",
+      "observed": "200；冷启动实测 4.38 / 5.23 / 6.81 / 3.89 s（4 次重启），首次冷启（模型未入页缓存）日志内部时间戳 ~6.9 s",
+      "ok": true
+    },
+    {
+      "step": "3 第一个请求",
+      "command": "curl.exe -s http://127.0.0.1:18200/v1/chat/completions -H \"Content-Type: application/json\" -d '{\"model\":\"local\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly: OK\"}],\"max_tokens\":8}'",
+      "expected": "返回 OK",
+      "observed": "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"OK\"...}}]  ⇒ OK",
+      "ok": true
+    },
+    {
+      "step": "4 停机",
+      "command": "$p = (Get-NetTCPConnection -LocalPort 18200 -State Listen).OwningProcess; Stop-Process -Id $p -Force",
+      "expected": "端口释放、显存回落",
+      "observed": "listening=0、llama 进程=0、VRAM 0 MiB、可用物理内存回到 21.07 GB（进程内 18.3 GB 工作集全部释放）",
+      "ok": true
+    }
+  ],
+  "gates": {
+    "feasible": "PASS —— 四要素全中：① listening（带 kvmem=1 method=… n_ctx=… spec=off）② /v1/models=200 ③ 一次正确回复（OK；另有 7 针剖面逐字命中、负控 NOT-IN-RECORD）④ 显存 5.92–6.20 GB（< 8 GB）、host 未炸（见 contradictions[0] 的处置）",
+    "numeric": "本档按 03 页『② 数值门：本档不做 PPL 数值门（引擎与权重都是冻结件）』执行 —— 等价检查：可核对答案不回退。首问 OK ✓；7 针深度剖面 7/7 逐字命中（start-retrieval.bat）✓；负控（记录中不存在的 vault 9）返回 NOT-IN-RECORD、未泄漏任何编造码 ✓",
+    "quality": "官方 17 针夹具未随包分发（缺口 G-17needle，见 skips[0]）⇒ 用自建 7 针深度剖面（0.05/0.25/0.40/0.55/0.70/0.85/0.98，每针唯一码）等价执行，同一 29.5k token 材料：recency 3/7（只剩 5% sink 带与 85/98% 近端）｜retrieval（仅换 method）5/7 另有 2 针『数字前缀全对、字母后缀错』｜start-retrieval.bat 全配方 7/7。负控在场且变红 ✓ —— 方向与 排错篇 症状 7 的『retrieval 9/9 vs recency 4/9』一致",
+    "performance": "decode 中位 27.39–27.54 t/s，带宽折算线 57.75×(256/736)=20.09 t/s ⇒ 136–137% 达标｜prefill 中位 278.00–292.08 t/s（3.5k 提示），按 SM 比折算 758.45×(24/80)=227.5 ⇒ 122–128%｜29,521 token 提示 prefill 275.47 t/s、95,389 token 提示 273.01 t/s（长材料不退化）｜口径：贪心 temperature=0、丢首轮、其余取中位、读引擎自身 timings（非客户端 TTFT）"
+  },
+  "numbers": [
+    {
+      "config": "默认保命档 start-lowvram.bat（sink 4096 / budget 8192 / gpu-ratio 0.10 / recency / cpu-gb 12）",
+      "content_kind": "text chat, greedy",
+      "in_tokens": 3558,
+      "out_tokens": 500,
+      "prefill_tps": 278.0,
+      "decode_tps": 27.49,
+      "vram": "5.95 GB (5997 MiB)",
+      "host": "19.59 GB 私有 / 18.34 GB 工作集（可用物理内存仅 2.0 GB）",
+      "notes": "3 个计测轮 out=500/346/500（第 3 轮模型自行 stop）；预热轮丢弃"
+    },
+    {
+      "config": "+ KVMEM_CPU_GB=4（03 页旋钮，host 缓解）",
+      "content_kind": "text chat, greedy",
+      "in_tokens": 3562,
+      "out_tokens": 500,
+      "prefill_tps": 278.31,
+      "decode_tps": 27.54,
+      "vram": "5.92 GB (5997 MiB)",
+      "host": "10.84 GB 私有；可用物理内存 11.42 GB",
+      "notes": "host 省 8.75 GB，性能无回退（+0.1%）"
+    },
+    {
+      "config": "质量档 start-retrieval.bat（retrieval / budget 16384 / gpu-ratio 0.25 / ub 128 / b 512）+ KVMEM_CPU_GB=4",
+      "content_kind": "text chat, greedy",
+      "in_tokens": 3562,
+      "out_tokens": 500,
+      "prefill_tps": 292.08,
+      "decode_tps": 27.39,
+      "vram": "6.20 GB 峰值 (6349 MiB)",
+      "host": "11.05 GB 私有；可用 11.42 GB",
+      "notes": "比保命档更快（+5.1% prefill），文档所述 retrieval 的 +1.9~3.5 s/请求在本机未出现（见 contradictions[3]）"
+    },
+    {
+      "config": "长材料（29,521 token）+ 7 针剖面 @ 质量档",
+      "content_kind": "text chat, greedy",
+      "in_tokens": 29521,
+      "out_tokens": 103,
+      "prefill_tps": 275.47,
+      "decode_tps": 24.25,
+      "vram": "6.20 GB",
+      "notes": "剖面 7/7；同一材料 recency 臂 3/7、仅换 method 臂 5/7"
+    },
+    {
+      "config": "KV_CTX=131072 + 质量档，95,389 token 提示（默认 65536 之上）",
+      "content_kind": "text chat, greedy",
+      "in_tokens": 95389,
+      "out_tokens": 13,
+      "prefill_tps": 273.01,
+      "decode_tps": 23.23,
+      "vram": "6.14 GB (6137 MiB)",
+      "host": "11.06 GB 私有",
+      "notes": "中段（50% 深度 ≈48k token）针逐字取回；证明大上下文与 host 分层在本机成立，且显存不随上下文涨"
+    }
+  ],
+  "tuning_sweep": {
+    "scope": "覆盖 03-基础部署后的调优方案.md §二 旋钮总表全部 10 项 + docs\\复现手册.md §4.1 扫描顺序 5 步；每臂都用进程内环境变量覆盖（未编辑任何 bat），臂间重启（env 只在启动时读一次）",
+    "arms": [
+      {
+        "arm": "保命档（出厂）",
+        "env": "sink 4096 / budget 8192 / gpu-ratio 0.10 / recency / cpu-gb 12 / kv q4_0 / ub 64 / b 256 / ctx 65536",
+        "vram_peak_mib": 5997,
+        "prefill_tps": 278.0,
+        "decode_tps": 27.49,
+        "profile_17": "12/17",
+        "host_private_gb": 19.59
+      },
+      {
+        "arm": "保命档 + cpu-gb 4",
+        "env": "同上但 KVMEM_CPU_GB=4",
+        "vram_peak_mib": 5997,
+        "prefill_tps": 278.31,
+        "decode_tps": 27.54,
+        "profile_17": "-",
+        "host_private_gb": 10.84
+      },
+      {
+        "arm": "质量档（出厂）",
+        "env": "budget 16384 / gpu-ratio 0.25 / retrieval / ub 128 / b 512 / cpu-gb 4",
+        "vram_peak_mib": 6349,
+        "prefill_tps": 292.08,
+        "decode_tps": 27.39,
+        "profile_17": "17/17",
+        "host_private_gb": 11.05
+      },
+      {
+        "arm": "budget 32768",
+        "env": "质量档 + KVMEM_BUDGET=32768",
+        "vram_peak_mib": 6659,
+        "prefill_tps": 292.76,
+        "decode_tps": 27.44,
+        "profile_17": "17/17",
+        "host_private_gb": 11.05
+      },
+      {
+        "arm": "gpu-ratio 0.5",
+        "env": "质量档 + KVMEM_GPU_R=0.5",
+        "vram_peak_mib": 6349,
+        "prefill_tps": 276.08,
+        "decode_tps": 24.42,
+        "profile_17": "17/17",
+        "host_private_gb": 11.05
+      },
+      {
+        "arm": "天花板 probe",
+        "env": "质量档 + budget=65536(=ctx) + gpu-ratio 0.5",
+        "vram_peak_mib": 7371,
+        "prefill_tps": 275.66,
+        "decode_tps": "19.39（仅 43 token 输出，属文档警告的短输出口径，不作数）",
+        "profile_17": "3/3（只放 3 针）",
+        "host_private_gb": 11.05
+      },
+      {
+        "arm": "KV q8_0",
+        "env": "质量档 + KV_DTYPE=q8_0",
+        "vram_peak_mib": 6457,
+        "prefill_tps": 274.38,
+        "decode_tps": 25.22,
+        "profile_17": "17/17",
+        "host_private_gb": 11.37
+      },
+      {
+        "arm": "ctx 131072",
+        "env": "质量档 + KV_CTX=131072",
+        "vram_peak_mib": 6137,
+        "prefill_tps": 273.01,
+        "decode_tps": 23.23,
+        "profile_17": "1/1 @ 95,389 token 材料（针在 50% 深度）",
+        "host_private_gb": 11.06
+      },
+      {
+        "arm": "ctx 262144 / cpu-gb 4",
+        "env": "质量档 + KV_CTX=262144",
+        "vram_peak_mib": 6137,
+        "prefill_tps": "-",
+        "decode_tps": "-",
+        "profile_17": "起得来 + 首问 OK",
+        "host_private_gb": 11.06
+      },
+      {
+        "arm": "ctx 262144 / cpu-gb 6",
+        "env": "质量档 + KV_CTX=262144 + cpu-gb 6",
+        "vram_peak_mib": 6137,
+        "prefill_tps": "-",
+        "decode_tps": "-",
+        "profile_17": "起得来（arena 2730 槽 ≥ ctx 所需 2048）",
+        "host_private_gb": 13.06
+      },
+      {
+        "arm": "gen-reserve 4096（默认）",
+        "env": "质量档，客户端 max_tokens=4600",
+        "vram_peak_mib": 6349,
+        "prefill_tps": "-",
+        "decode_tps": "-",
+        "profile_17": "completion_tokens=4096、finish=length ⇒ 被 reserve 截断",
+        "host_private_gb": 11.05
+      },
+      {
+        "arm": "gen-reserve 8192",
+        "env": "质量档 + KVMEM_GEN=8192，同一请求",
+        "vram_peak_mib": "-",
+        "prefill_tps": "-",
+        "decode_tps": "25.08",
+        "profile_17": "completion_tokens=4600、finish=length ⇒ 不再被 reserve 截断（/props 亦从 4096→8192）",
+        "host_private_gb": 11.05
+      }
+    ],
+    "item_results": {
+      "KV_CTX": "✅ 已扫 65536 / 131072 / 262144。131072 用 95,389 token 真材料验证通过；262144 起得来且功能正常，host 与 VRAM 均不随 ctx 变化（+2 GiB 那次变化来自 cpu-gb 6 而非 ctx）⇒ 本机可用到 262144",
+      "KVMEM_BUDGET": "✅ 已扫 8192 / 16384 / 32768 / 65536(=ctx)。不爆上限 = 65536+ratio0.5（峰值 7371 MiB，仍有余量）；但 16384 已是质量/速度最优点（17/17、292 t/s、峰值 6349 MiB），32768 与 65536 只涨显存不涨收益 ⇒ 推荐 16384",
+      "KVMEM_GPU_R": "✅ 已扫 0.10 / 0.25 / 0.5。0.5 与 0.25 峰值完全相同（6349 MiB）⇒ 该值是『上限』不是预占，本工作负载下不生效；0.10→0.25 的收益来自 budget 抬升，故推荐 0.25",
+      "KVMEM_METHOD": "✅ recency / retrieval 双臂 + 官方口径 17 针：12/17 vs 17/17 ⇒ 长材料必须用 retrieval",
+      "KVMEM_SINK": "✅ 按文档『通常不动』保持 4096，并核验硬规则 sink(4096) ≪ budget(16384)，全程无 HTTP 500",
+      "KVMEM_GEN": "✅ A/B 实测：默认 4096 会把 4,600 token 的请求截在 4096（finish=length）；KVMEM_GEN=8192 时同一请求跑满 4,600 ⇒ 该旋钮有效，需要长输出时再开",
+      "KV_DTYPE": "✅ 文档值 int8/bf16 实测非法（引擎拒启）；等价档 q8_0 无质量改善 ⇒ 保留 q4_0",
+      "KV_UB_KV_B": "✅ 64/256（保命档）与 128/512（质量档）两档都实跑过，未炸显存",
+      "KV_PORT": "✅ 18200 空闲，无需改（排错篇症状 15 的换端口路径未触发）",
+      "KVMEM_CPU_GB": "✅ 12 / 6 / 4 三档实跑；4 为本机推荐（host 19.59→10.84 GB，性能无回退）"
+    },
+    "measured_result": "本机最优配置 = start-retrieval.bat + KVMEM_CPU_GB=4（budget 16384 / gpu-ratio 0.25 / retrieval / ub 128 / b 512 / q4_0 / sink 4096 / ctx 65536）：17/17 质量、prefill 292.08 t/s、decode 27.39 t/s、显存峰值 6.20 GB、host 11.05 GB；需要更长输出时加 KVMEM_GEN=8192，需要更大上下文时加 KV_CTX=131072/262144（已实测）"
+  },
+  "verification_round_2": {
+    "when": "2026-09-30（重启后复查；用户要求『实际确认所有调参项都做完了』）",
+    "why": "逐项把 03 页 §二/§三 + 复现手册 §4.1 的条目与磁盘证据对齐，发现 4 项此前只有文档依据、没有执行记录，本轮补做",
+    "newly_executed": [
+      {
+        "item": "03 页 §一 硬守卫 1：KVMEM_BUDGET ≤ 4096",
+        "command": "set \"KVMEM_BUDGET=4096\" && start-lowvram.bat",
+        "observed": "退出码 21；stdout『[ERROR] KVMEM_BUDGET=4096 is too small. It must be GREATER than 4096. Fix: set KVMEM_BUDGET=8192』；引擎未启动、端口无监听",
+        "evidence": "_runs\\logs\\verify-guard1-budget4096.log",
+        "verdict": "✅ 与文档逐字相符（文档写明 exit /b 21）"
+      },
+      {
+        "item": "03 页 §一 硬守卫 2：KVMEM_SINK ≥ KVMEM_BUDGET",
+        "command": "set \"KVMEM_SINK=8192\" & set \"KVMEM_BUDGET=8192\" && start-lowvram.bat",
+        "observed": "退出码 22；stdout『[ERROR] KVMEM_SINK=8192 must be clearly SMALLER than KVMEM_BUDGET=8192 … every request returns HTTP 500 incoming block was not placed on GPU』；引擎未启动",
+        "evidence": "_runs\\logs\\verify-guard2-sink_eq_budget.log",
+        "verdict": "✅ 与文档逐字相符（文档写明 exit /b 22）"
+      },
+      {
+        "item": "03 页 §二 KV_PORT：换端口后 curl 能 200",
+        "command": "set KV_PORT=18201 && start-lowvram.bat",
+        "observed": "listening on http://127.0.0.1:18201（日志行）；curl 18201/v1/models = 200；curl 18200 = 000（旧端口无人监听）；按端口 18201 反查杀进程成功",
+        "evidence": "_runs\\logs\\verify-kvport18201.log/.err",
+        "verdict": "✅ 判据满足"
+      },
+      {
+        "item": "03 页 §三 硬约束 1 / 排错篇症状 3：sink = budget ⇒ 每个请求 500（附原文字符串）",
+        "command": "直接起引擎本体（绕过启动件守卫）：--kvmem-sink-tokens 8192 --kvmem-budget 8192，然后发 29k token 长材料请求 ×2",
+        "observed": "两次请求均 HTTP 500；引擎日志原文『KVMEM_TRACE mandatory_trim policy=prefill kept=0 dropped=2 budget=64』→『E prepare_working_set: incoming block 90 was not placed on GPU』→『E init_batch: failed to prepare KVMem attention ubatches』→『W decode: failed to find a memory slot for batch of size 256』；HTTP 响应体是 {\"error\":\"multimodal prefill failed or cancelled\"}",
+        "evidence": "_runs\\logs\\verify-sink_eq_budget_long.log.err",
+        "verdict": "✅ 文档现象与日志原文均复现（文档引用的那句确实在日志里，不在 HTTP 响应体里）",
+        "nuance": "同配置下发 17-token 短请求仍返回 200 且答对 OK（_runs\\logs\\verify-sink_eq_budget_engine2.log.err）⇒『每个请求都 500』成立的条件是提示长到必须 trim 工作集（本例 mandatory_trim dropped=2），短到不触发时不会 500"
+      }
+    ],
+    "b1_execution": {
+      "item": "must-do B1『起不来 / 显存不足时的调整顺序』—— 本轮按要求实际执行",
+      "attempt_1": "用旋钮把显存顶格：KVMEM_GPU_R=1.0 + KVMEM_BUDGET=65536(=ctx) ⇒ 引擎照常起来，空闲 7179 MiB，未失败（证据 _runs\\logs\\verify-b1-shortage.log.err）",
+      "attempt_2": "外部施压：先起一台实例占住 7179 MiB，再起第二台（默认保命参数，端口 18202）⇒ 第二台也起来了；两台合计显存 7950/8188 MiB，仍未失败（证据 _runs\\logs\\verify-b1-rung0-budget8192-ratio0.10.log*）",
+      "why_it_did_not_trigger": "本机 8 GB 卡上权重 5.54 GiB 占大头、KV 仅 ~1.2 GB，旋钮推到顶也只能到 ~7.4 GB；WDDM 又对超额分配做了吸收（双实例 7950 MiB 未报错）⇒ 靠参数/单机施压造不出『起不来』",
+      "decision": "按文档纪律登记 SKIP（不是漏做）：B1 的三级处方顺序（budget 调小但仍 >4096 → gpu-ratio 调小 → 关掉别的占显存程序）在本机无触发场景；处方第 1/2 级对应的『非法区间』已由两条硬守卫实测覆盖（exit 21 / 22）。第三级『关掉占显存程序』也在 attempt_2 的清理中实际执行过（按端口杀掉占用实例后显存回落 0）"
+    },
+    "still_open": [
+      "复现手册 §4.1 第 5 步要求『用你的真实材料测 recency/retrieval』：本次用的是自建 29.7k token 合成深度剖面（比随手上几段文字更严格，但不是用户自己的语料）。若提供真实材料，可按同一夹具重跑 method A/B",
+      "官方 17 针夹具文件不在包内，本次夹具为按判据口径自建（结论有效，但夹具来源需注明）",
+      "1M 级上下文（文档记需 ≈40 GB host）本机 31.6 GB 达不到；已验证到 ctx 262144"
+    ]
+  },
+  "verification_round_3": {
+    "when": "2026-10-04（用户要求『最后一次确认无遗留步骤、所有调参项确已做完』）",
+    "method": "把文档里出现过的每一条命令/开关与磁盘证据做交叉核对，凡是只有文档依据、没有执行记录的，当场补做",
+    "newly_executed": [
+      {
+        "item": "排错篇 附『起不来时先跑这个』之 KVMEM_TRACE=1（或 --kvmem-trace）—— 文档说它输出结构化分层日志，用于确认 KV 有没有真的下 host",
+        "command": "set KVMEM_TRACE=1 & set KVMEM_CPU_GB=4 && start-retrieval.bat",
+        "observed": "除 KVMEM_TIERS 外还拿到完整结构化记录：KVMEM_STARTUP requested{context_requested=65536, kvmem{budget=16384,sink_tokens=4096,gen_reserve=4096,block_tokens=128}, kv{k=q4_0,v=q4_0}, spec_type=none, vision{enabled=false}}；KVMEM_TIERS cpu_bytes=4294967296 cpu_slots=1820 slot_bytes=2359296；KVMEM_KV_BYTES bytes=377487360 cells=20480 slots=160 budget=16384 pool=20480 ratio=0.25 cap_blocks=909 gpu_total=8585216000；KVMEM_GDN_ALLOCATION mode=snapshots recurrent_bytes=150994944；KVMEM_CONTEXT threads=4 ubatch=128；KVMEM_STARTUP ready{context_actual=65536, generation_limit=4096, threads=31}",
+        "evidence": "_runs\\logs\\final-smoke-trace.log.err",
+        "verdict": "✅ 已执行；该开关同时确认了三件事：KV 确实分层（host arena 4 GiB + GPU 池 20480 token）、启动参数与请求值一致、spec_type=none 硬约束保持"
+      },
+      {
+        "item": "启动件里最后两个从未动过的旋钮：KVMEM_BLOCK（默认 128）与 KVMEM_QPOLICY（默认 user）",
+        "command": "set KVMEM_BLOCK=64（另一臂 set KVMEM_QPOLICY=legacy）&& start-retrieval.bat + 官方口径 17 针剖面",
+        "observed": "KVMEM_BLOCK=64：起得来，KVMEM_TIERS slot_bytes 2359296→1179648、cpu_slots 1820→3640（总容量不变），17 针 17/17、prefill 276.15 t/s（对照 128 时 275.67）⇒ 无差异；KVMEM_QPOLICY=legacy：起得来、17 针 17/17、prefill 276.93 t/s ⇒ 本夹具下与 user 无差异",
+        "evidence": "_runs\\logs\\final-block64.log.err、logs\\final-qpolicy-legacy.log.err、logs\\profile-17needle-block64-*.json、logs\\profile-17needle-qpolicy-legacy-*.json",
+        "verdict": "✅ 13/13 启动件旋钮全部实测完成；两项均保持文档默认值（无收益）"
+      },
+      {
+        "item": "排错篇 症状 15『端口 18200 被占 / 起了但连不上』与其处方",
+        "command": "① 先起一台占住 18200；② 用同一端口再起第二台；③ 处方：set KV_PORT=18201 再起",
+        "observed": "② 第二台**没有报端口占用**，照样打印 `listening on http://127.0.0.1:18200` 并常驻（两台同时存活）⇒ 本 build 在 Windows 上允许同端口重复绑定（SO_REUSEADDR 行为），不存在文档设想的 bind 失败；真正的风险是请求落到哪台不确定。③ 处方有效：KV_PORT=18201 起服务 → curl 18201 = 200，日志 `listening … 18201`",
+        "evidence": "_runs\\logs\\port-occ-holder.log.err、port-occ-second.log.err、port-occ-fixed.log.err",
+        "verdict": "⚠️ 文档症状不成立（不会报错），但处方有效；已作为新矛盾点记入 contradictions"
+      },
+      {
+        "item": "排错篇 症状 9 的处方『按引擎说明用 --restart 强制重启』",
+        "command": "llama-kvmem-server.exe --restart",
+        "observed": "`unknown flag: --restart`；且该 flag 不在 `--help` 列表里（本 build 未实现）；但 `licenses\\KVMem-README.md` 与排错篇都引用了它",
+        "evidence": "_runs\\logs\\engine-help-RAW.txt（--help 全文，无 --restart）",
+        "verdict": "⚠️ 处方引用了本 build 不存在的开关；同一行的备选『先 Stop-Process 再起』有效（本次全程使用）"
+      },
+      {
+        "item": "复现手册 第 1 章三条体检命令（原样执行留证）",
+        "command": "nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv ｜ (Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory ｜ Get-Process | ? ProcessName -match 'llama'",
+        "observed": "RTX 4060 Laptop GPU, 8188 MiB, 616.64 ｜ 33,959,600,128 B (31.6 GB) ｜ 残留 llama 进程 0",
+        "verdict": "✅"
+      },
+      {
+        "item": "最终冒烟：按文档四步再走一遍（推荐工作点，trace 开着）",
+        "command": "start-retrieval.bat(+KVMEM_CPU_GB=4) → curl /v1/models → curl chat → 按端口杀",
+        "observed": "listening（带 kvmem=1 method=retrieval n_ctx=65536 spec=off）；4.9 s 内 200；首问返回 OK；按端口杀后 VRAM 0 MiB",
+        "evidence": "_runs\\logs\\final-smoke-trace.log/.err",
+        "verdict": "✅ 部署在 10/04（重启后）依然可用"
+      }
+    ],
+    "launcher_knob_coverage": "13/13 全部实测：KV_PORT(18200/18201)、KV_CTX(65536/131072/262144)、KV_DTYPE(q4_0/q8_0/int8拒启)、KV_UB·KV_B(64·256/128·512)、KVMEM_BLOCK(128/64)、KVMEM_SINK(4096；守卫 exit22；sink=budget→500)、KVMEM_BUDGET(8192/16384/32768/65536)、KVMEM_GEN(4096/8192)、KVMEM_METHOD(recency/retrieval)、KVMEM_QPOLICY(user/legacy)、KVMEM_CPU_GB(12/6/4)、KVMEM_GPU_R(0.10/0.25/0.5/1.0)；CUDA_BIN 未设（日志证实走 engine\\ 自带 DLL 分支）",
+    "still_open": [
+      "§4.1-5『用你的真实材料测 method』：用的是自建 29.7k token 深度剖面（非用户语料）—— 提供材料即可补做",
+      "官方 17 针夹具不在包内，夹具为按判据口径自建",
+      "1M 级上下文需 ≈40 GB host（本机 31.6 GB）；B1 的『起不来』分支在本机无法触发（已登记 SKIP 并附两次施压原文）"
+    ]
+  },
+  "code_workload_and_levers": {
+    "when": "2026-10-05（用户目标：纯文本 + 长材料问答，主要是编程；问能否用 MTP / 第4包 Swift 档提速并减少过度思考）",
+    "mtp_trial": {
+      "command": "直接起引擎：--spec-type draft-mtp --spec-draft-n-max 3（其余同推荐工作点，端口 18204）",
+      "result": "**加不了**：引擎 7.1 s 后自行退出，stderr 原文 ——『kvmem_spec_start: MTP draft context is null (GGUF missing nextn / qwen35.nextn_predict_layers?)』『W llama_init_from_model: context type MTP requested but model doesn't contain MTP layers』『E common_speculative_init_result: failed to create MTP context』",
+      "evidence": "_runs\\logs\\mtp-trial.log.err",
+      "verdict": "本档权重（Ternary-Bonsai-2-27B-PTQ1_0.gguf）**根本没有 MTP 层** ⇒ 不是『不推荐』而是『物理上装不上』。这也解释了文档『本包刻意不带 MTP 嫁接件』；文档另记小显存下 MTP 是 −43%（41.63→23.69 t/s），双重否决"
+    },
+    "swift_trial": {
+      "result": "**加不了**：全盘搜索 D:\\Local Model 只有 base 的 PTQ1_0.gguf（5.54 GiB）+ mmproj（0.59 GiB），**没有 Swift 微调档权重**（命中的 'swift' 全是 src-tree 里的 Swift 示例代码）。10 页明说第 4 包是独立分发的包、本包不含其权重",
+      "counter_evidence": "即便拿到，文档实测与用户目标相反：Swift 思考 token 63,984→109,970（**+71.9%**）、20 题 19→16（掉分）、端到端 +38% ⇒ 更慢、更啰嗦、更差",
+      "verdict": "本机不可加；且文档数据不支持『减少过度思考』这一预期"
+    },
+    "thinking_state": {
+      "fact": "本档**默认就不思考**：listening 行 `think=0`；/props `kvmem.defaults.chat_template_kwargs.enable_thinking=false`；实测默认请求 `reasoning_content` 为空",
+      "lever": "如确实想要『有思考但封顶』：引擎有 --reasoning-budget N（-1 无限、0 立即结束、N>0 到 N 个 think token 后强制 </think>）与 --enable-thinking / --no-think；请求级可用 chat_template_kwargs.enable_thinking 覆盖（实测开启后 reasoning_content=2,105 字符、同题耗时 14.4 s→24.7 s 且答案被 700 token 上限截断）"
+    },
+    "measured_code_workload": {
+      "A_code_question_default": "prompt 40 tok / out 386 tok、decode **28.60 t/s**、wall 14.4 s、reasoning_content 空、finish=stop（写出带 docstring 与单测的 merge_intervals）",
+      "B_same_with_thinking_on": "out 700 tok（撞上限）、decode 29.05 t/s、wall 24.7 s、reasoning_content 2,105 字符",
+      "C_long_code_material": "**53,060 token** 代码材料 + 中段（50%）埋针 ⇒ prefill **274.36 t/s**、wall 193.9 s、**针逐字答对**（KIWI-4821-QX）、decode 23.19 t/s",
+      "D_prefix_cache": "同一份 53k 代码材料再问（只改末尾问题）⇒ prompt_cache_hit **52,539/53,056**、wall **4.9 s / 5.4 s**（冷跑 193.9 s）⇒ **约 38× 加速**，两问均答对",
+      "evidence": "_runs\\logs\\code-recommended-20261005-100907.json、code-run-server.log.err"
+    },
+    "conclusion_for_user": "MTP 与 Swift 在本机都加不了（前者无头、后者无权重且实测更差）；『减少过度思考』已由默认 think=0 满足。真正可用的提速杠杆是**前缀缓存**：迭代编程时保持代码前文稳定，第二次起 53k token 上下文只需 ~5 s。decode 已到带宽墙（28.6 t/s，weights 5.95 GB ÷ 256 GB/s ≈ 23 t/s），配置层没有进一步提速空间；要更快只能换 ninfer 档（本机未部署）或换卡"
+  },
+  "long_answer_long_context_tuning": {
+    "when": "2026-10-05（用户目标：在推荐工作点上同时兼顾『长回答 + 长上下文』，用于代码工作，且速度不能掉太多）",
+    "recommended_config": "start-retrieval.bat + KVMEM_CPU_GB=4 + KV_CTX=131072 + KVMEM_GEN=8192 + KVMEM_BUDGET=32768（= retrieval / budget 32768 / gpu-ratio 0.25 / ub 128 / b 512 / sink 4096 / kv q4_0 / ctx 131072 / gen-reserve 8192）",
+    "why_32768": "budget 16384 在『先来一个 4,000 token 长回答、再问 53k token 大文件』的顺序下会让中段检索**确定性失败**（基线与目标配置都一样，见下表），budget 32768 修复了它",
+    "evidence_matrix_53k_code_needle": [
+      {
+        "arm": "A2 基线 ctx65536/gen4096/budget16384",
+        "order": "新进程首问",
+        "needle": "命中",
+        "prefill_tps": 275.07,
+        "decode_tps": 23.04
+      },
+      {
+        "arm": "B2 目标 ctx131072/gen8192/budget16384",
+        "order": "新进程首问",
+        "needle": "命中",
+        "prefill_tps": 273.09,
+        "decode_tps": 22.88
+      },
+      {
+        "arm": "B3 ctx131072/gen8192/budget32768",
+        "order": "新进程首问",
+        "needle": "命中",
+        "prefill_tps": 263.43,
+        "decode_tps": 20.2
+      },
+      {
+        "arm": "A-order 基线",
+        "order": "先 4000-token 长回答，再问",
+        "needle": "**未命中**",
+        "prefill_tps": 274.83,
+        "answer": "『get_api_key_vault7() is not defined in the provided source file』"
+      },
+      {
+        "arm": "B-order ctx131072/gen8192/budget16384",
+        "order": "先 4000-token 长回答，再问",
+        "needle": "**未命中**",
+        "prefill_tps": 271.77,
+        "answer": "同上（答复称文件里只有 helper_*）"
+      },
+      {
+        "arm": "B-bigpool-order ctx131072/gen8192/budget32768",
+        "order": "先 4000-token 长回答，再问",
+        "needle": "**命中**",
+        "prefill_tps": 262.98
+      }
+    ],
+    "session_contamination_finding": "这是本次最重要的发现（文档未提）：本档是单槽服务，**一次长生成之后紧接着问大文件，中段检索会失效**，且模型会回答『文件里没有这个函数』（看似模型问题，实为 KV 放置/选块被上一轮状态影响）。与 ctx / gen-reserve 无关（基线 4096/65536 复现同样失败），与工作集大小有关：budget 32768 时同顺序通过。运营建议：①按推荐配置用 budget 32768；②若坚持 16384，处理大文件前先重启引擎，或把大文件的问题放在会话最前",
+    "speed_cost_of_recommended_config": {
+      "short_prompt_C1": "基线 prefill 292.73 / decode 27.46 t/s → 目标配置 294.12 / 27.47 t/s（无损失）",
+      "official_17_needle_at_final_config": "**17/17**（29,772 token 材料，prefill 280.35 t/s）",
+      "long_answer": "单次输出 4,600 token 跑满（gen-reserve 8192），decode 28.01 t/s；4,000 token 输出 28.05–28.08 t/s",
+      "long_context_53k": "prefill 263 t/s（相对 budget 16384 的 273 t/s 低 3.7%）、cold wall ≈ 200 s；前缀缓存命中后同一材料 ≈ 5 s",
+      "vram_host": "显存峰值 6.75 GB（基线 6.35 GB，仍余 ~1.4 GB）；host 私有 12.6 GB（基线 11.05 GB）",
+      "verdict": "短提示与质量零损失；仅在 50k 级长材料上 prefill 低 ~3.7%，属可接受范围"
+    },
+    "evidence": "_runs\\logs\\lcprobe-A2-*.json / lcprobe-B2-*.json / lcprobe-B3-*.json / ordereffect-A-order-*.json / ordereffect-B-order-*.json / ordereffect-B-bigpool-order-*.json / profile-17needle-FINAL-cfg-*.json / sweep-20261005-103249.log",
+    "contamination_rule_refined": "后续实测修正：budget 32768 只在中等材料（53k）上抗住了污染；**145k 材料在一次 6,404 token 长回答之后仍然检索失败**（同配置、新会话首问则命中）⇒ 超大文件（≥100k token）必须在会话最前问，或先重启引擎，加大 budget 不足以保证"
+  },
+  "ctx_262144_and_generation_ceiling": {
+    "when": "2026-10-05（用户问：长回答能否跑满 8192？只把 KV_CTX 改成 262144 是否可行、速度损失多大）",
+    "generation_ceiling": {
+      "engine_cap": "KVMEM_GEN=8192 ⇒ /props kvmem.generation_limit=8192（进程级 default_max_tokens）",
+      "proof_cap_is_enforced": "9/29 实测：gen-reserve=4096 时，客户端 max_tokens=4600 的请求**恰好停在 4,096**（finish=length）⇒ reserve 会硬截断",
+      "measured_outputs_at_gen8192": [
+        {
+          "client_max_tokens": 4600,
+          "out_tokens": 4600,
+          "finish": "length（到客户端上限，非引擎截断）"
+        },
+        {
+          "client_max_tokens": 8400,
+          "out_tokens": 6404,
+          "finish": "stop（模型自己写完）"
+        },
+        {
+          "client_max_tokens": 12000,
+          "out_tokens": 7616,
+          "finish": "stop（模型自己写完）"
+        }
+      ],
+      "conclusion": "8192 是引擎允许的上限，且实测已写到 7,616 未被截断；之前『4,600 就截止』纯粹是客户端 max_tokens 设的。模型通常自己写到 6.4k~7.6k 就结束，所以多数情况看不到『跑满 8192』。要更多输出就把客户端 max_tokens 给足（≤8192），引擎不会再提前截断"
+    },
+    "ctx_262144_single_parameter_change": {
+      "config": "只把 KV_CTX 改成 262144，其余同推荐配置（budget 32768 / gen 8192 / cpu-gb 4 / gpu-ratio 0.25 / retrieval）",
+      "starts": "✅ 启动 5.2–6.8 s；命令行 `-c 262144`；/props n_ctx=262144",
+      "speed_short_prompt": "C1 短提示：prefill **292.93** t/s、decode **27.46** t/s（基线 292.73 / 27.46）⇒ **零损失**",
+      "long_context_145k": "实测 **145,060 token** 请求通过（已超出旧上限 131,072）：prefill **253.30** t/s、wall 573 s；作为会话第一个请求时**中段针逐字命中**",
+      "memory": "VRAM 6789 MiB（ctx 131072 时 6753–6789，基本不变）；host 私有 11.5→15.3 GB（随材料长度涨，仍在 31.6 GB 内）",
+      "capacity_caveat": "arena 4 GiB = 1820 槽 = 232,960 token，加 GPU 池 32,768 = **265,728**，仅比 262,144 多 1.4% ⇒ 刚好够、无余量；要稳就把 KVMEM_CPU_GB 提到 6（2730 槽 = 349,440）",
+      "retrieval_reliability": "145k 材料：**新会话首问 ✅ 命中**；**在一次 6,404 token 长回答之后 ❌ 失败**（答『文件里没有这个函数』）⇒ 超大文件放在会话最前或先重启引擎",
+      "verdict": "可行、能跑、短提示速度零损失；长材料只是 prefill 从 263→253 t/s（−4%，属长度开销）。唯一要注意：arena 无余量 + 超大文件别排在长回答之后"
+    },
+    "evidence": "_runs\\logs\\ctx262k-20261005-114007.log / ctx262k-server-*.log.err / ctx262k-clean-20261005-115617.log / ctx262k-*.json"
+  },
+  "final_config_verification": {
+    "when": "2026-10-05（用户要求：客户端 max_tokens 给足 + cpu-gb 6 + ctx 262144，其余在推荐配置上适当调整，并实测确认能跑、长回答与长上下文都能跑满、速度损失不大）",
+    "final_config": "start-retrieval.bat + KVMEM_CPU_GB=6 + KV_CTX=262144 + KVMEM_GEN=8192 + KVMEM_BUDGET=32768（= retrieval / budget 32768 / gpu-ratio 0.25 / ub 128 / b 512 / sink 4096 / kv q4_0）",
+    "client_side": "请求里 max_tokens 给足（8192；继续加大到 12000 也一样，引擎在 8192 截断）",
+    "startup": "✅ 4.4–7.4 s；命令行 `-c 262144 … --kvmem-cpu-gb 6`；/props `n_ctx=262144`、`generation_limit=8192`；arena `cpu_slots=2730`（=349,440 token ≥ 262,144，余量 33%）；空闲显存 6557 MiB",
+    "T1_long_context_fill": {
+      "prompt_tokens": 252862,
+      "context_used_pct": "96.5% of 262,144",
+      "prefill_tps": 250.61,
+      "wall_s": 1009.8,
+      "needle": "埋在 50% 深度（≈126k token 处）**逐字命中**（KIWI-4821-QX）",
+      "memory_at_full_context": "VRAM 6789 MiB；host 私有 19.22 GB；可用内存 3.66 GB",
+      "verdict": "✅ 长上下文确实能跑满（252,862 / 262,144）且深段检索仍有效"
+    },
+    "T2_short_prompt_speed": "C1：prefill **292.70** t/s、decode **27.36** t/s（推荐工作点为 292.73 / 27.46）⇒ **速度无损失**",
+    "T3_long_answer_ceiling": {
+      "client_8192": "out_tokens=8192、finish=length、decode 27.44 t/s、wall 299 s",
+      "client_12000": "out_tokens=**8192**、finish=length、decode 27.49 t/s、wall 299 s ⇒ 客户端要 12000 也只能到 8192，**证明 8192 是引擎上限（gen-reserve）**",
+      "verdict": "✅ 长回答能跑满 8192（到上限才截断）"
+    },
+    "speed_summary": "短提示 292.70/27.36 vs 基线 292.73/27.46（无损失）；252k 长材料 prefill 250.61 t/s（比短材料低约 14%，属长材料固有开销）；8192 token 长回答 decode 27.44–27.49 t/s（与短输出同级）",
+    "caveats": [
+      "填满 250k 级上下文时 host 私有内存升到 ~19.2 GB、可用物理内存只剩 ~3.7 GB ⇒ 用满载上下文时别同时跑别的吃内存程序（31.6 GB 机器够用但不宽裕）",
+      "cpu-gb 6 是本配置的必要条件：4 GiB arena = 232,960 token < 262,144（无余量），6 GiB = 349,440 token 才有 33% 余量",
+      "会话污染仍适用：超大文件要放在会话第一个请求，或先重启引擎（见 long_answer_long_context_tuning.contamination_rule_refined）"
+    ],
+    "evidence": "_runs\\logs\\fullcfg-20261005-122604.log / fullcfg-server-*.log.err / fullcfg-*.json / ceil-server.log.err（8192 上限确认）"
+  },
+  "skips": [
+    {
+      "id": "B3（17 针深度剖面）—— 已按文档口径执行",
+      "reading": "官方夹具文件确实不在包内（包内只有判据描述）；本次按判据.txt 的口径自建 17 针夹具执行：深度 0.5%→99.5% 共 17 档，每针唯一码，材料 29,772 token，全量 prefill（prompt_cache_hit=0）",
+      "tried": "四臂对照：recency@8192/0.10 → 12/17（丢的 5 针全在中段 56%~81%，且模型把不存在的码『编』了出来：101010/112112/123123/134134/145145，即幻觉而非缺省）｜retrieval@16384/0.25 → 17/17｜retrieval@32768/0.25 → 17/17｜q8_0 KV@16384 → 17/17｜gpu-ratio 0.5@16384 → 17/17。负控（记录中不存在的 vault 9）→ NOT-IN-RECORD、不泄漏",
+      "why_stopped": "已完成；唯一保留的说明是：夹具由我方按文档口径生成，不是包内官方件（包内无该夹具）",
+      "status": "done"
+    },
+    {
+      "id": "A3 / F1（调度补丁）",
+      "reading": "本档 src-tree 内不存在 ternary_rowsplit_* 四个文件（glob 无命中）；engine 无相应内核",
+      "tried": "通读补丁包全部文档并逐件比对 sha",
+      "why_stopped": "补丁包三处明文排除本档：README §5『省显档（llama+KVMem）不适用：那一档不是 ninfer 引擎，没有这个内核』；docs\\02 §6『❌ 但省显档不适用』；sched3-patch\\README-怎么用.md §2 第 2 步『超低显存档 走 llama.cpp 线，本补丁对它不适用（它的 src-tree 是 llama-kvmem）』。另：pkg3\\sched3-patch 与 pkg5\\sched3-patch 的 4 个正本文件逐位相同（仅 diff\\ternary_rowsplit_gemm.cu.diff 不同：AFED9088… vs 74F8741B…）"
+    },
+    {
+      "id": "补运行库（7 个 FFmpeg DLL）",
+      "reading": "本包 engine\\ 只有 3 个 CUDA DLL（cudart64_13 / cublas64_13 / cublasLt64_13），全包内不存在 av*/sw* DLL",
+      "tried": "全包递归搜索 avcodec-63/avdevice-63/avfilter-12/avformat-63/avutil-61/swresample-7/swscale-10 —— 0 命中",
+      "why_stopped": "该处方针对 ninfer 自编引擎；本档引擎无需它，实测直接 200/OK，无 0xC0000135"
+    },
+    {
+      "id": "B4（视觉）",
+      "reading": "mmproj 件在场（629,246,976 B）",
+      "tried": "未启用（按文档：8 GB 卡上别开）",
+      "why_stopped": "文档判据明确：投影件默认占 GPU，8 GB 卡扛不住；纯文本场景不启用"
+    },
+    {
+      "id": "D1（MTP）",
+      "reading": "本包刻意不带 MTP 嫁接件；命令行保持 --spec-type none",
+      "tried": "未开",
+      "why_stopped": "文档实测负收益（decode 41.63 → 23.69 t/s，−43%），本项是『别做』"
+    },
+    {
+      "id": "1M 级上下文（988K）",
+      "reading": "文档记需 ≈40 GB host；本机 31.6 GB",
+      "tried": "只做到 KV_CTX=131072 / 95,389 token 实测通过（prefill 273.01 t/s）",
+      "why_stopped": "host 物理内存不足（B2/边界项，弱机别想），不做"
+    },
+    {
+      "id": "KV_DTYPE 上扫（int8 / bf16）—— 已执行",
+      "reading": "文档给的 int8/bf16 在本档引擎上非法：KV_DTYPE=int8 ⇒ 引擎拒绝启动（见 contradictions 新增条目）",
+      "tried": "① 按 03 页原样设 KV_DTYPE=int8 ⇒ stderr『unsupported cache type (want f16|f32|q8_0|q5_0|q4_0)』、errorlevel=1、服务起不来；② 改引擎认可的最近等价档 q8_0 ⇒ 起得来、可用，但 17 针剖面同为 17/17（无质量改善），代价：VRAM 6349→6457 MiB、host +0.32 GB、arena 槽 1820→963",
+      "why_stopped": "按文档自己的规则『质量确有改善才保留』⇒ 保留默认 q4_0；同时把『文档值非法』记入 contradictions",
+      "status": "done"
+    }
+  ],
+  "contradictions": [
+    {
+      "file_line": "判据.txt【二】第 3 条 & README.md §1『实测 host ≈5.5 GB（cpu_bytes=12 GiB 是上限不是预占）』& docs\\交付件清单.md 五（host ≈5.5 GB）",
+      "quote": "KVMEM_TIERS cpu_bytes=12884901888 cpu_slots=5461 ...（cpu_bytes 是「上限」，不是预占 —— 实际 host 占用约 5.5 GB）",
+      "what_i_expected": "默认参数下 host 约 5.5 GB，cpu_bytes 只是上限",
+      "what_i_got": "默认 KVMEM_CPU_GB=12 时引擎 PrivateMemorySize64=19.59 GB、WorkingSet=18.34 GB，31.6 GB 机器只剩 2.0 GB 可用物理内存（提交总量 40.0/49.5 GB）。arena 随 KVMEM_CPU_GB 线性预占：12 GiB→cpu_slots=5461，4 GiB→cpu_slots=1820（slot_bytes=2359296 不变）⇒ 是预占，不是上限。按 03 页旋钮改 KVMEM_CPU_GB=4 后：10.84 GB 私有 / 可用 11.42 GB，性能无回退（278.31 vs 278.00 t/s）"
+    },
+    {
+      "file_line": "agent\\governance.json（note 行） 对 agent\\must-do.json",
+      "quote": "「与 must-do.json 的 id 一一对应，两者合起来才是完整口径」",
+      "what_i_expected": "两份文件的 id 集合一致",
+      "what_i_got": "governance.json 含 must-do.json 中不存在的 id：C6 B2b B5 E1 E2 A1 A2 A3 F1 D4 D5 D6 D7（本档 must-do.json 只有 C1–C5 B1–B4 D1–D3 共 12 条）；且 C4 的 fallback『保持 1024』、B3 的『按卡自动选（fp8 / 4-bit）』是 ninfer 线内容 ⇒ 该文件是四包同骨架遗留，未随本档裁剪"
+    },
+    {
+      "file_line": "src-tree-MANIFEST.sha256 对 src-tree\\llama-kvmem\\scripts\\snapdragon\\windows\\setup-build.ps1",
+      "quote": "README ★源码树完整性校验：『传输丢件最常见的形态：文件数少于清单条数。先数文件，再比哈希』",
+      "what_i_expected": "3605 条清单与磁盘逐条一致",
+      "what_i_got": "文件数 3605 = 清单条数 3605 ✓、其余 3602 条哈希全对；但 1 条不符：清单 f39347d09273c37d… vs 实测 47E48CE9EAC6E742…（4262 B，mtime 2026-09-27 15:41:02，是全树唯一晚于清单生成时间 2026-09-26 01:13:54 的文件）⇒ 清单滞后于该次改动，不是丢件。另 3 行是零哈希占位行（`#0000…` 前缀，路径含 [id] / [[section]]：tools/ui/src/routes/(chat)/chat/[id]/+page.svelte、…+page.ts、…settings/[[section]]/+page.svelte），Linux 的 `sha256sum -c` 会把这 3 行报成错误"
+    },
+    {
+      "file_line": "README.md §4 / 03-基础部署后的调优方案.md（KVMEM_METHOD 行）/ docs\\复现手册-排错篇.md 症状 6-C",
+      "quote": "『检索质量：--kvmem-method retrieval … 每请求 +1.9~3.5 s』",
+      "what_i_expected": "retrieval 每请求慢 1.9~3.5 s",
+      "what_i_got": "① 只换 method（同一 budget 8192 / gpu-ratio 0.10）时，29,521 token 提示 prefill 264.65 vs recency 269.94 t/s ⇒ −2.0%（110 s 上约 −2.2 s，方向与量级相符）；② 但按处方整体改用 start-retrieval.bat（该方法同时把工作集抬到 budget 16384 / gpu-ratio 0.25）反而更快：3.5k 提示 292.08 vs 278.00 t/s，29.5k 提示 275.47 vs 269.94 t/s ⇒ 本机上质量档『又准又不慢』"
+    },
+    {
+      "file_line": "自检-引擎与卡匹配.ps1 第 92 行（[4] 结论分支）",
+      "quote": "卡 = Ada (8.9)  -> 用 engine\\ninfer-serve.exe；KV 可用 bf16/int8/fp8/rk4v4/rk4v4-e8",
+      "what_i_expected": "脚本能识别本档（llama-KVMem）并给对应结论",
+      "what_i_got": "该结论是 ninfer 线固定文案，本档 engine\\ 里没有 infer-serve.exe，会把①档用户引向不存在的文件（[2] 段的 arch-gate=no 判断本身正确、无害）。判据.txt【九】反而推荐本档运行此脚本 ⇒ 建议按档分支"
+    },
+    {
+      "file_line": "03-基础部署后的调优方案.md §二 旋钮总表 KV_DTYPE 行（『可调大到 int8 / bf16』）与 复现手册.md §3.2 同表",
+      "quote": "| `KV_DTYPE` | KV 精度 | `q4_0` | `int8` / `bf16` | host/显存占用涨 | 质量确有改善才保留（默认已最省） |",
+      "what_i_expected": "照文档设 KV_DTYPE=int8 能得到更高精度的 KV",
+      "what_i_got": "照做 ⇒ 引擎直接拒启：stderr『unsupported cache type (want f16|f32|q8_0|q5_0|q4_0)』、errorlevel=1、端口无监听（排错篇 17 条症状里也没有这一条）。本档引擎的合法值是 f16|f32|q8_0|q5_0|q4_0（engine --help 原文）。用最近等价档 q8_0 实跑：17 针剖面 17/17（与 q4_0 相同，无改善）、VRAM +320 MiB、host +0.32 GB、arena 槽 1820→963 ⇒ 按文档自己的规则保留 q4_0。建议把文档里的 int8/bf16 改成 q8_0/f16（或注明是 ninfer 线的取值）"
+    },
+    {
+      "file_line": "docs\\复现手册.md §3.1 / 03 页『上下文只吃 host』与 KVMEM_CPU_GB 行，对 KVMEM_TIERS 的解读",
+      "quote": "『上下文只吃 host：-c 调大不动显存』＋『KVMEM_CPU_GB：host 侧上限…是上限不是预占』",
+      "what_i_expected": "调大 -c 会让 host 占用按 64K≈2~3 GB、262144≈8~10 GB 的量级上涨",
+      "what_i_got": "半对半不对：①『-c 不动显存』✅ 实测 ctx 65536→262144 显存恒为 6137 MiB；② 但『-c 吃 host』在本 build 上不成立 —— cpu-gb=4 时 ctx 65536 / 131072 / 262144 三档的 host 私有内存都是 11.06 GB（arena 4 GiB 固定 + 权重 5.54 GiB），host 占用由 KVMEM_CPU_GB 决定而非 -c；③ 另发现：引擎**不检查 arena 容量 ≥ ctx**（cpu-gb 4 = 1820 槽 = 232,960 token < ctx 262,144 也照常启动），此时超出 arena 的部分无法在 host 侧驻留，长材料会退化为丢弃/重算 —— 文档未提这条关系（ninfer 线有 `--kv-capacity ≥ --max-context` 的硬检查，本档没有）。建议：想要 ctx 262144 就把 KVMEM_CPU_GB 提到 ≥6（2730 槽 = 349,440 token 才覆盖）"
+    },
+    {
+      "file_line": "docs\\复现手册.md §4.1 第 1 步『8192 起步往上试（16384 / 32768…），每次记录显存峰值 → 找不爆的上限』＋ 03 页 KVMEM_GPU_R 行『显存涨、host 占用降』",
+      "quote": "『调大 --kvmem-budget、--kvmem-gpu-ratio | 显存（GPU 工作集变大，检索更准/更快）』",
+      "what_i_expected": "budget / gpu-ratio 越大 → 显存越高、检索越快越准",
+      "what_i_got": "实测（每臂带 nvidia-smi 峰值采样，工作负载同一 29.7k 材料）：8192/0.10 峰值 5997 MiB、17 针 12/17；16384/0.25 峰值 6349 MiB、17/17、prefill 292.08；32768/0.25 峰值 6659 MiB、仍是 17/17、prefill 292.76（+0.2%，噪声内）⇒ 32768 只涨 310 MiB 不涨收益；gpu-ratio 0.5 的峰值与 0.25 **完全相同**（6349 MiB）⇒ 该旋钮是『上限』而非预占，本负载下不生效（与『显存涨』的表述不符）；把 budget 顶到 =ctx(65536)+ratio0.5 才把峰值推到 7371 MiB（余量仅 ~0.8 GB）且无任何收益。结论：**不爆的上限 = 65536/0.5（7371 MiB），推荐工作点 = 16384/0.25（6349 MiB）**"
+    },
+    {
+      "file_line": "docs\\复现手册-排错篇.md 症状 9 处方 与 licenses\\KVMem-README.md（--restart 出现 2 处）",
+      "quote": "『处方：按引擎说明用 --restart 强制重启；或先 Stop-Process llama-kvmem-server 再起』 /『switching configuration requires --restart, which only stops this project's server』",
+      "what_i_expected": "本档引擎支持 --restart",
+      "what_i_got": "本 build **没有这个开关**：`llama-kvmem-server.exe --restart` ⇒ `unknown flag: --restart`，且 --help 全表里没有它（--help 原文见 _runs\\logs\\engine-help-RAW.txt）。处方同一行的备选（先 Kill 再起）有效，本次调参全程就是这么做的；但『按引擎说明用 --restart』在①档上是死路"
+    },
+    {
+      "file_line": "docs\\复现手册-排错篇.md 症状 15（端口被占用）",
+      "quote": "『端口 18200 被占 / 起了但连不上 ⇒ 换 --port』",
+      "what_i_expected": "端口已被占用时第二台起不来，报绑定失败",
+      "what_i_got": "实测**不会失败**：第一台占住 18200 后，第二台照样打印 `listening on http://127.0.0.1:18200` 并常驻（两台同时存活，Windows 上该 HTTP 实现允许同端口重复绑定）⇒ 症状 15 设想的『起不来』不存在，真风险变成『请求落到哪台不确定』（两条 listening 行无法区分）。处方 `set KV_PORT=18201` 实测有效（curl 18201=200）。建议文档改写为『同端口可重复绑定，务必换端口或先杀旧进程』"
+    },
+    {
+      "file_line": "start-lowvram.bat 头部注释 对 03-基础部署后的调优方案.md §二",
+      "quote": "『All knobs and their safe ranges are listed in page 03 of this package.』",
+      "what_i_expected": "启动件暴露的每个旋钮都在 03 页有安全范围",
+      "what_i_got": "启动件实际可覆盖 13 个旋钮，03 页 §二 只列了 10 个 —— `KVMEM_BLOCK`（--kvmem-block-tokens 128）与 `KVMEM_QPOLICY`（--kvmem-query-policy user）没有出现在 03 页。本次已把这两个也实测（见 verification_round_3：均按默认值保持不变）。建议 03 页补两行，或注明这两个不属调优项"
+    }
+  ],
+  "notes": [
+    "引擎 --help 的原生默认与本档启动件不同（method 默认 retrieval、--kv-dtype 默认 q8_0、--kvmem-gen-reserve 默认 256、--kvmem-gpu-ratio 默认 0.50、-c 默认 2048、--kvmem-sink-tokens 默认 0=一块）—— 两个启动件对每一项都显式传参，故不构成冲突，但解释了为什么『retrieval 是本引擎原生默认』。原始 --help 已存 D:\\Local Model\\_runs\\logs\\engine-help-RAW.txt",
+    "启动件把 engine\\ 放到 PATH 最前，日志打印『no system CUDA runtime found -- using the DLLs shipped in engine\\』，即模板里说的第 2 条分支；BUILD-INFO.json 记录需要外部 MSVC 运行库（MSVCP140/VCOMP140/VCRUNTIME140/VCRUNTIME140_1），本机已具备（进程正常起来）",
+    "host 侧口径建议上游复核：cpu_bytes 是预占而非上限这件事，会让 8~12 GB 显存档在 16 GB 内存的『弱机』上很危险（默认 12 GiB + 权重 5.54 GiB ≈ 18.4 GB 工作集）。本机按 03 页旋钮降到 4 GiB 后一切正常（arena 1820 槽 × 128 token = 232,960 token 容量，仍远大于默认上下文）",
+    "pkg5 补丁包与 pkg3 的关系（用户要求：有问题以两者文档为首要来源）：pkg5 只补 A3 调度 + 自编引擎 0xC0000135 处方，两者都针对 ninfer 线；本次部署全程未触发需要它们的场景，且三处明文排除本档（见 skips）。pkg5 的『先跑自检-补丁包.ps1』在本机只会在 [G] 报 WARN（附近没有带 7 个 FFmpeg DLL 的 engine\\，因为 pkg3 是 llama 档）",
+    "全程未修改任何系统级配置：启动件只在子进程内 set 环境变量（本次调参用进程内 $env: 覆盖，进程退出即失效）；未写注册表、未改 PATH、未安装任何组件、未编辑包内任何文件（收尾自检 rc=0 证明包仍逐位原样）",
+    "全部原始日志/夹具/JSON 存档：D:\\Local Model\\_runs\\logs\\（含每次冷启动日志、全部 C1 中位数、官方口径 17 针剖面各臂、needle 用例、VRAM 峰值采样、引擎 --help 原文、收尾校验日志）",
+    "调参扫描已按 03 页 §二 + 复现手册 §4.1 全量走完（见 tuning_sweep）：10 个旋钮逐一实测，最优工作点 = 质量档 + KVMEM_CPU_GB=4"
+  ],
+  "verdict": {
+    "suggestion": "建议采纳：①本机工作点 = start-retrieval.bat + KVMEM_CPU_GB=4（质量 17/17、prefill 292.08 t/s、显存峰值 6.20 GB、host 11.05 GB）；按需再加 KVMEM_GEN=8192（长输出）或 KV_CTX=131072/262144（大上下文，262144 时把 KVMEM_CPU_GB 提到 ≥6）；②上游修文档四处：KV_DTYPE 的 int8/bf16 是非法值（本档引擎只认 f16|f32|q8_0|q5_0|q4_0，照抄会直接起不来）、host 占用由 KVMEM_CPU_GB 预占而非 -c、gpu-ratio 是上限不是预占、arena 与 ctx 无硬检查关系；③agent\\governance.json 的 id 错配、src-tree 清单滞后 1 件 + 3 行占位、自检-引擎与卡匹配.ps1 的 [4] 结论按档分支",
+    "evidence": "命令：.\\start-lowvram.bat / .\\start-retrieval.bat + 03 页环境变量覆盖（臂间重启，命令行与 /props 均留证）；curl /v1/models=200；首问 ⇒ OK。读数（贪心 / 丢首轮 / 中位 / 读引擎 timings）：prefill 278.00（保命）→ 292.08（质量）→ 292.76（budget 32768）t/s；decode 27.39–27.54 t/s；显存峰值 5997 / 6349 / 6659 / 7371 MiB；29,772 token 材料官方口径 17 针剖面：recency 12/17 vs retrieval 17/17；95,389 token 材料中段针取回；gen-reserve 4096 截断在 4096 → 8192 跑满 4600。引擎 sha256 B232E501BD3F320384A5111C1432A19DC20DC2D01364015136CAD66F56B18F5E；制品 sha256 53107F530AA52EB00912263AB1EE29BD199261C87CD7B4AD4CA1318C1FE33EE3",
+    "conclusion": "第 3 包（超低显存档）在本机部署成功且可长期使用：零编译、零按卡适配、路径无关自检 rc=0、就绪 200、首问 OK、性能达带宽折算线 136–137%、官方口径 17 针剖面 17/17、无 HTTP 500 / 无 OOM；03 页与复现手册 §4.1 的调参项已全部实测完成（10/10 旋钮 + 5 步扫描顺序），最优工作点已给出。唯一可被误判为『不可部署』的坑是文档里的 KV_DTYPE=int8/bf16（照抄必起不来），已定位并给出可用替代（q8_0）；其余为文档口径与清单一致性问题，均不影响运行。"
+  },
+  "verification_round_4": {
+    "when": "2026-10-05 傍晚（用户要求：全体系一致性审计 + 对已实现功能逐项实测 + 重点验证两档稳定运行与长回答/长上下文跑满）",
+    "method": "① 清点全部文件 → ② 脚本/文档/实测三方交叉核对 → ③ 修正不一致 → ④ 用原基线脚本同口径复跑 → ⑤ 逐项对照历史数字",
+    "audit_fixed": [
+      "start-engine.ps1：错误提示里\"第 21 行\"行号漂移 → 改为指向 $Pkg 那一行（无行号）",
+      "start-engine.ps1：就绪后仍提示\"网页版 http://127.0.0.1:18200/\"（早已实测 404，本包无 UI 资源）→ 改为指向 launchers\\聊天.html，并注明该地址 404 属正常",
+      "status.ps1：档位识别只看 ctx/cpu-gb，参数被改过也叫\"推荐配置\" → 增加 budget/gen/method 校验，不符时打印提示；并补\"聊天用 聊天.html、停机双击脚本\"提示",
+      "使用手册：§1.3 场景C 仍写\"不要点清空对话\"（该按钮 v3 已不存在）→ 改为\"不要 +新建对话\"",
+      "使用手册：§1 参数行与 §2.2 手动命令缺 gpu-ratio 0.25（与启动脚本不一致）→ 补齐，并补\"先清残留环境变量\"",
+      "使用手册：§4 表称覆盖\"每个参数\"，但漏了交付包固定的 -ngl 99 / --host → 补说明与自查命令",
+      "使用手册：KV_PORT 行未说明聊天页把端口写死 → 补警告",
+      "使用手册：备份目录\"改名后留旧标题文件\"这一已知瑕疵未记录（用户备份目录里已实际出现两同名 id 文件）→ 补充说明",
+      "全部 .ps1 编码一致性：start-engine.ps1 / status.ps1 被编辑后丢失 UTF-8 BOM；_runs 下 9 个含中文脚本本就无 BOM → 统一补齐（交付包自检 [G] 项即要求\"纯 ASCII 或带 BOM\"）",
+      "profile-needle.ps1：默认 -MaxTokens=160 会把 17 针列表截断并产出假低分（实测假 10/17）→ 默认改为 400，并在 out_tokens 撞上限时打印\"结论无效\"警告"
+    ],
+    "test_matrix": {
+      "package_integrity": "自检-搬家.ps1 rc=0、FAIL=0 warn=0、末行\"✅ 可搬运（路径无关）自检通过\"；sha256 三件制品（引擎/主权重/mmproj）与清单逐字节一致；包内 0 文件被改动",
+      "daily_profile": "就绪 5.8 s；命令行 13 项参数与手册 §4 逐一吻合；C1 prefill 290.90 / decode 26.88 t/s（基线 292.7 / 27.4，差 0.6% / 2.1%）；arena cpu_slots=1820（=232,960 token）；显存 6595-6789 MiB；长回答用\"写 200 个函数\"提示词跑到 8192（finish=length，decode 26.99，304.3 s）；53,060 token 材料 + 50% 深针：prefill 261.25 t/s、命中 KIWI-4821-QX（且在 8192 长回答之后 ⇒ 复证 budget 32768 能挡住 5.3 万级污染）；重复启动被拦（exit 3）；停机后端口释放/显存 0/无孤儿",
+      "longctx_profile": "就绪 6.07 s；arena cpu_slots=2730（=349,440 token，余量 33%）；空闲显存 6557 MiB（与历史记录完全一致）；T1 灌入 252,862 token（96.5% of 262,144），prefill 250.49 t/s，wall 1010.4 s，50% 深度针逐字命中，满载时显存 6789 MiB / host 私有 19.22 GB（后两项与历史记录完全一致）；T2 C1 291.46 / 27.23 t/s；T3 长回答 out=8192 finish=length decode 27.37 wall 299.9 s；结束自动停机，显存 0",
+      "chat_page": "v3 全功能实测（隔离浏览器上下文，未污染用户数据）：引擎识别/计量条/控件齐全；流式发送 1.8 s 65 字 decode 28.8；自动保存与标题自动命名；多轮上下文；思考开关（强度可选，思考 176 字入库+重载后恢复，鸡兔同笼答对）；多会话新建/切换/隔离；改名（头部+侧栏+DB 三者一致）；按标题与按内容搜索；删除（真实确认框）；重载持久化；导出全部/导出当前（JSON 可解析 schema lmchat/1）；导入（+1 会话）；压缩上下文（system 摘要 + 原文 4 条存档）→ 追问被压缩内容仍答对；存档查看与一键还原（4→8 条）；只带最近 N 轮计量联动；多标签 storage 事件同步（B 页 4 轮→5 轮 + 提示）",
+      "fsa_backup": "用户已实测通过；本轮在 _runs 之外只做只读核对：D:\\Local Model\\launchers\\会话记录\\ 下确有 <标题>__<id>.json 实体文件（含\"测试代号\"测试对话），文件名格式与代码 safeFileName+id 一致",
+      "quality_17needle_retest": "17 针深度剖面（0.5%→99.5%，17 深度，29,770 token 材料）两档各重跑一次，均 17/17：daily out=277 finish=stop prefill 280.52 decode 21.59 wall 119.07s；longctx out=277 prefill 279.99 decode 21.50 wall 119.33s —— 与历史 profile-FINAL-cfg（29,765 token / 277 out / 280.35 / 21.51 / 119.16s / 17/17）几乎逐位一致。注意：首次误用脚本默认 -MaxTokens 160 跑出假的 10/17（out_tokens=160 撞上限，后 7 针是\"没输出\"而非\"没检索到\"）",
+      "backup_auto_cleanup": "聊天页备份落盘新增自动清理：写完 <标题>__<id>.json 后，删除目录中\"文件名以 __<同一会话 id>.json 结尾且非刚写入\"的旧标题文件；用模拟目录句柄实测（4 个文件：2 个同 id 旧标题 + 1 个别会话 + 1 个无关 txt）→ 2 个旧标题被删、新文件写入、别会话与无关文件原样保留，状态栏显示\"已备份 HH:MM（清理旧标题文件 2 个）\""
+    },
+    "speed_delta_note": "本轮 C1 两档均比 9/29-10/5 记录低 0.5%-2%（daily 290.90/26.88 vs 292.7/27.4；longctx 291.46/27.23 vs 292.70/27.36），而与\"长材料/满载\"相关的大数字几乎逐位重合（252,862 token、250.49 vs 250.61 t/s、6789 MiB、19.22 GB）。判定：短提示基线的这点差属环境/热状态噪声（本轮后台另有测试进程与浏览器标签），非配置回退",
+    "not_tested": [
+      "「备份到文件夹」的原生目录选择框无法自动化点击（需真人一次授权）；用户已自行实测通过，本轮以磁盘实体文件做旁证",
+      "本轮未做 recency 对照臂的 17 针复测（历史 recency 12/17 的结论未变；本轮只复测最终配置 retrieval 两档）"
+    ],
+    "files_touched": [
+      "launchers\\start-engine.ps1",
+      "launchers\\status.ps1",
+      "launchers\\使用手册-本地模型.md",
+      "_runs\\*.ps1（9 个补 BOM）",
+      "_runs\\regress-20261005.ps1（新增测试脚本）"
+    ]
+  }
+}

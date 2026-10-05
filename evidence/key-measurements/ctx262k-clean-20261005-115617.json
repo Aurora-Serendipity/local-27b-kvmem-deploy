@@ -1,0 +1,12 @@
+{
+    "ctx":  "262144",
+    "budget":  "32768",
+    "gen":  "8192",
+    "t1_prompt_tokens":  145060,
+    "t1_prefill":  253.29600142806,
+    "t1_needle":  true,
+    "t1_answer":  "KIWI-4821-QX",
+    "t2_out_tokens":  7616,
+    "t2_finish":  "stop",
+    "t2_decode":  27.520596291766307
+}

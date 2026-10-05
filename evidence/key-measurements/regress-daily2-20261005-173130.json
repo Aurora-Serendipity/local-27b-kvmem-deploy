@@ -1,0 +1,8 @@
+{
+  "t3_out": 8192,
+  "t3_finish": "length",
+  "t3_decode": 26.987868893962087,
+  "longmat_tokens": 53060,
+  "longmat_prefill": 261.247950933938,
+  "longmat_needle": true
+}
