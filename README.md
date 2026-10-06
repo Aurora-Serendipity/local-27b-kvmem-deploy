@@ -4,7 +4,7 @@
 >
 > 本仓库是**完整实测过**的方案：参数、数字、脚本、踩坑、证据，全部来自这台机器上的真实测量（不是照抄文档）。
 
-[![实测](https://img.shields.io/badge/实测-17针剖面%2017%2F17-brightgreen)](<>) [![长上下文](https://img.shields.io/badge/上下文-252%2C862%20token-blue)](<>) [![长回答](https://img.shields.io/badge/单次输出-8192%20token-blue)](<>)
+[![实测](https://img.shields.io/badge/实测-17针剖面%2017%2F17-brightgreen)](docs/04-性能与质量基线.md) [![长上下文](https://img.shields.io/badge/上下文-252%2C862%20token-blue)](docs/04-性能与质量基线.md) [![长回答](https://img.shields.io/badge/单次输出-8192%20token-blue)](docs/04-性能与质量基线.md)
 
 ---
 
